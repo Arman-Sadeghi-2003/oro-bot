@@ -2,11 +2,9 @@ import os
 import sqlite3
 import time
 import logging
-import random
-import string
+from flask import Flask, request
 from telegram import InlineQueryResultArticle, InputTextMessageContent, InlineKeyboardMarkup, InlineKeyboardButton, ReplyKeyboardMarkup, KeyboardButton, ReplyKeyboardRemove, Update
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes, ConversationHandler, CallbackQueryHandler, InlineQueryHandler
-import asyncio
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
 # تنظیم لاگ‌گذاری
@@ -16,6 +14,10 @@ logging.basicConfig(
     format='%(asctime)s - %(levelname)s - %(message)s'
 )
 
+# ایجاد اپلیکیشن Flask
+app = Flask(__name__)
+
+# تنظیمات اولیه
 print("Fetching BOT_TOKEN from environment...")
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 if not BOT_TOKEN:
@@ -679,13 +681,30 @@ async def resume_order(update: Update, context: ContextTypes.DEFAULT_TYPE) -> in
     else:
         return await start(update, context)
 
+# تعریف اپلیکیشن تلگرام به صورت گلوبال
+application = None
+
+# تعریف endpoint برای Webhook
+@app.route('/webhook', methods=['POST'])
+def webhook():
+    update = Update.de_json(request.get_json(force=True), application.bot)
+    application.process_update(update)
+    return 'OK', 200
+
+# یه endpoint ساده برای تست سرور
+@app.route('/')
+def health_check():
+    return "Bot is running!", 200
+
 def main():
+    global application
     print("Building Telegram application...")
     application = Application.builder().token(BOT_TOKEN).build()
 
     # مقداردهی اولیه دیتابیس
     init_db()
 
+    # اضافه کردن هندلرها
     conv_handler = ConversationHandler(
         entry_points=[
             CommandHandler('start', start),
@@ -753,10 +772,16 @@ def main():
     scheduler.add_job(send_reminder, 'interval', minutes=30, args=[application])
     scheduler.start()
 
-    print("Bot is running...")
-    application.run_polling()
-    print("Polling started successfully!")
+    print("Setting up webhook...")
+    webhook_url = "https://orobot.onrender.com/webhook"  # آدرس سرورت رو اینجا بذار
+    application.run_webhook(
+        listen="0.0.0.0",
+        port=int(os.getenv("PORT", 8443)),  # پورت از متغیر محیطی گرفته می‌شه
+        url_path="/webhook",
+        webhook_url=webhook_url
+    )
 
 if __name__ == '__main__':
     print("Starting main function...")
     main()
+    app.run(host="0.0.0.0", port=int(os.getenv("PORT", 8443)))
