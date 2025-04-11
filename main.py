@@ -746,11 +746,6 @@ conv_handler = ConversationHandler(
 application.add_handler(conv_handler)
 application.add_handler(InlineQueryHandler(inlinequery))
 
-# تنظیم زمان‌بندی برای ارسال یادآوری
-scheduler = AsyncIOScheduler()
-scheduler.add_job(send_reminder, 'interval', minutes=30, args=[application])
-scheduler.start()
-
 # تعریف مسیرهای aiohttp
 async def webhook(request):
     update = Update.de_json(await request.json(), application.bot)
@@ -769,6 +764,12 @@ async def main():
     webhook_url = "https://orobot.onrender.com/webhook"
     await application.bot.set_webhook(url=webhook_url)
     print("Webhook set successfully!")
+
+    # تنظیم زمان‌بندی برای ارسال یادآوری
+    scheduler = AsyncIOScheduler()
+    scheduler.add_job(send_reminder, 'interval', minutes=30, args=[application])
+    scheduler.start()
+    print("Scheduler started successfully!")
 
     # ایجاد اپلیکیشن aiohttp
     app = web.Application()
