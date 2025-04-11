@@ -3,10 +3,10 @@ import sqlite3
 import time
 import logging
 import asyncio
-from flask import Flask, request
+from aiohttp import web
 from telegram import InlineQueryResultArticle, InputTextMessageContent, InlineKeyboardMarkup, InlineKeyboardButton, ReplyKeyboardMarkup, KeyboardButton, ReplyKeyboardRemove, Update
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes, ConversationHandler, CallbackQueryHandler, InlineQueryHandler
-from apscheduler.schedulers.background import BackgroundScheduler
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
 # تنظیم لاگ‌گذاری
 logging.basicConfig(
@@ -14,9 +14,6 @@ logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(levelname)s - %(message)s'
 )
-
-# ایجاد اپلیکیشن Flask
-app = Flask(__name__)
 
 # تنظیمات اولیه
 print("Fetching BOT_TOKEN from environment...")
@@ -682,112 +679,113 @@ async def resume_order(update: Update, context: ContextTypes.DEFAULT_TYPE) -> in
     else:
         return await start(update, context)
 
-# تعریف اپلیکیشن تلگرام به صورت گلوبال
-application = None
+# تعریف اپلیکیشن تلگرام
+application = Application.builder().token(BOT_TOKEN).build()
 
-# تعریف endpoint برای Webhook
-@app.route('/webhook', methods=['POST'])
-def webhook():
-    update = Update.de_json(request.get_json(force=True), application.bot)
-    application.process_update(update)
-    return 'OK', 200
+# تعریف هندلرها
+conv_handler = ConversationHandler(
+    entry_points=[
+        CommandHandler('start', start),
+        MessageHandler(filters.Regex('^🎨 شروع دوباره$'), restart),
+        MessageHandler(filters.Regex('^💬 ارتباط با پشتیبانی$'), support),
+        MessageHandler(filters.Regex('^🛍️ محصولات$'), start),
+        MessageHandler(filters.Regex('^❓ سوالات پرتکرار$'), faq),
+        MessageHandler(filters.Regex('^ℹ️ درباره ما$'), about_us),
+        MessageHandler(filters.Regex('^📷 اینستاگرام$'), instagram),
+        CallbackQueryHandler(support, pattern="^support$"),
+        CallbackQueryHandler(resume_order, pattern="^resume_order$"),
+    ],
+    states={
+        PRODUCT: [
+            MessageHandler(filters.Regex('^💬 ارتباط با پشتیبانی$'), support),
+            CallbackQueryHandler(support, pattern="^support$"),
+            MessageHandler(filters.Text() & ~filters.Command(), handle_product_selection)
+        ],
+        SIZE: [
+            MessageHandler(filters.Regex('^💬 ارتباط با پشتیبانی$'), support),
+            MessageHandler(filters.Text() & ~filters.Command(), handle_size_selection)
+        ],
+        PHOTO: [
+            MessageHandler(filters.Regex('^💬 ارتباط با پشتیبانی$'), support),
+            CallbackQueryHandler(photo, pattern="^understood$"),
+            MessageHandler(filters.ALL & ~filters.Command(), photo)
+        ],
+        EDIT: [
+            MessageHandler(filters.Regex('^💬 ارتباط با پشتیبانی$'), support),
+            MessageHandler(filters.Regex('^(بله|خیر)$'), edit)
+        ],
+        DISCOUNT: [
+            MessageHandler(filters.Regex('^💬 ارتباط با پشتیبانی$'), support),
+            CallbackQueryHandler(discount, pattern="^no_discount$"),
+            MessageHandler(filters.Text() & ~filters.Command(), discount)
+        ],
+        CONTACT: [
+            MessageHandler(filters.CONTACT, contact),
+            MessageHandler(filters.ALL & ~filters.Command(), contact)
+        ],
+        SUPPORT: [
+            CallbackQueryHandler(handle_support, pattern="^send_to_operator$"),
+            MessageHandler(filters.Text() & ~filters.Command(), handle_support)
+        ],
+        FAQ_STATE: [
+            MessageHandler(filters.Regex('^💬 ارتباط با پشتیبانی$'), support),
+            MessageHandler(filters.Text() & ~filters.Command(), handle_faq_selection)
+        ],
+    },
+    fallbacks=[
+        CommandHandler('start', start),
+        MessageHandler(filters.Regex('^🎨 شروع دوباره$'), restart),
+        MessageHandler(filters.Regex('^💬 ارتباط با پشتیبانی$'), support)
+    ],
+    per_chat=True,
+    per_user=True,
+    per_message=False
+)
 
-# یه endpoint ساده برای تست سرور
-@app.route('/')
-def health_check():
-    return "Bot is running!", 200
+# اضافه کردن هندلرها به اپلیکیشن
+application.add_handler(conv_handler)
+application.add_handler(InlineQueryHandler(inlinequery))
 
-# تابع ناهمزمان برای تنظیم Webhook
-async def set_webhook():
-    global application
-    print("Building Telegram application...")
-    application = Application.builder().token(BOT_TOKEN).build()
+# تنظیم زمان‌بندی برای ارسال یادآوری
+scheduler = AsyncIOScheduler()
+scheduler.add_job(send_reminder, 'interval', minutes=30, args=[application])
+scheduler.start()
 
+# تعریف مسیرهای aiohttp
+async def webhook(request):
+    update = Update.de_json(await request.json(), application.bot)
+    await application.process_update(update)
+    return web.Response(text="OK")
+
+async def health_check(request):
+    return web.Response(text="Bot is running!")
+
+# تابع اصلی برای اجرا
+async def main():
     # مقداردهی اولیه دیتابیس
     init_db()
 
-    # اضافه کردن هندلرها
-    conv_handler = ConversationHandler(
-        entry_points=[
-            CommandHandler('start', start),
-            MessageHandler(filters.Regex('^🎨 شروع دوباره$'), restart),
-            MessageHandler(filters.Regex('^💬 ارتباط با پشتیبانی$'), support),
-            MessageHandler(filters.Regex('^🛍️ محصولات$'), start),
-            MessageHandler(filters.Regex('^❓ سوالات پرتکرار$'), faq),
-            MessageHandler(filters.Regex('^ℹ️ درباره ما$'), about_us),
-            MessageHandler(filters.Regex('^📷 اینستاگرام$'), instagram),
-            CallbackQueryHandler(support, pattern="^support$"),
-            CallbackQueryHandler(resume_order, pattern="^resume_order$"),
-        ],
-        states={
-            PRODUCT: [
-                MessageHandler(filters.Regex('^💬 ارتباط با پشتیبانی$'), support),
-                CallbackQueryHandler(support, pattern="^support$"),
-                MessageHandler(filters.Text() & ~filters.Command(), handle_product_selection)
-            ],
-            SIZE: [
-                MessageHandler(filters.Regex('^💬 ارتباط با پشتیبانی$'), support),
-                MessageHandler(filters.Text() & ~filters.Command(), handle_size_selection)
-            ],
-            PHOTO: [
-                MessageHandler(filters.Regex('^💬 ارتباط با پشتیبانی$'), support),
-                CallbackQueryHandler(photo, pattern="^understood$"),
-                MessageHandler(filters.ALL & ~filters.Command(), photo)
-            ],
-            EDIT: [
-                MessageHandler(filters.Regex('^💬 ارتباط با پشتیبانی$'), support),
-                MessageHandler(filters.Regex('^(بله|خیر)$'), edit)
-            ],
-            DISCOUNT: [
-                MessageHandler(filters.Regex('^💬 ارتباط با پشتیبانی$'), support),
-                CallbackQueryHandler(discount, pattern="^no_discount$"),
-                MessageHandler(filters.Text() & ~filters.Command(), discount)
-            ],
-            CONTACT: [
-                MessageHandler(filters.CONTACT, contact),
-                MessageHandler(filters.ALL & ~filters.Command(), contact)
-            ],
-            SUPPORT: [
-                CallbackQueryHandler(handle_support, pattern="^send_to_operator$"),
-                MessageHandler(filters.Text() & ~filters.Command(), handle_support)
-            ],
-            FAQ_STATE: [
-                MessageHandler(filters.Regex('^💬 ارتباط با پشتیبانی$'), support),
-                MessageHandler(filters.Text() & ~filters.Command(), handle_faq_selection)
-            ],
-        },
-        fallbacks=[
-            CommandHandler('start', start),
-            MessageHandler(filters.Regex('^🎨 شروع دوباره$'), restart),
-            MessageHandler(filters.Regex('^💬 ارتباط با پشتیبانی$'), support)
-        ],
-        per_chat=True,
-        per_user=True,
-        per_message=False
-    )
-    print("Adding handlers to application...")
-    application.add_handler(conv_handler)
-    application.add_handler(InlineQueryHandler(inlinequery))
-
-    # تنظیم زمان‌بندی برای ارسال یادآوری با BackgroundScheduler
-    scheduler = BackgroundScheduler()
-    scheduler.add_job(lambda: application.run_async(send_reminder, context=application), 'interval', minutes=30)
-    scheduler.start()
-
-    print("Setting up webhook...")
-    webhook_url = "https://orobot.onrender.com/webhook"  # آدرس سرورت رو اینجا بذار
+    # تنظیم Webhook
+    webhook_url = "https://orobot.onrender.com/webhook"
     await application.bot.set_webhook(url=webhook_url)
     print("Webhook set successfully!")
 
-def main():
-    # ایجاد حلقه رویداد برای اجرای تابع ناهمزمان
-    loop = asyncio.get_event_loop()
-    loop.run_until_complete(set_webhook())
+    # ایجاد اپلیکیشن aiohttp
+    app = web.Application()
+    app.router.add_post('/webhook', webhook)
+    app.router.add_get('/', health_check)
 
-    # اجرای سرور Flask
+    # اجرای سرور
     port = int(os.getenv("PORT", 8443))
-    app.run(host="0.0.0.0", port=port)
+    runner = web.AppRunner(app)
+    await runner.setup()
+    site = web.TCPSite(runner, '0.0.0.0', port)
+    await site.start()
+    print(f"Server started on port {port}")
+
+    # نگه داشتن برنامه در حال اجرا
+    await asyncio.Event().wait()
 
 if __name__ == '__main__':
     print("Starting main function...")
-    main()
+    asyncio.run(main())
