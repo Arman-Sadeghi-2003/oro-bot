@@ -2,10 +2,11 @@ import os
 import sqlite3
 import time
 import logging
+import asyncio
 from flask import Flask, request
 from telegram import InlineQueryResultArticle, InputTextMessageContent, InlineKeyboardMarkup, InlineKeyboardButton, ReplyKeyboardMarkup, KeyboardButton, ReplyKeyboardRemove, Update
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes, ConversationHandler, CallbackQueryHandler, InlineQueryHandler
-from apscheduler.schedulers.background import BackgroundScheduler  # تغییر به BackgroundScheduler
+from apscheduler.schedulers.background import BackgroundScheduler
 
 # تنظیم لاگ‌گذاری
 logging.basicConfig(
@@ -696,7 +697,8 @@ def webhook():
 def health_check():
     return "Bot is running!", 200
 
-def main():
+# تابع ناهمزمان برای تنظیم Webhook
+async def set_webhook():
     global application
     print("Building Telegram application...")
     application = Application.builder().token(BOT_TOKEN).build()
@@ -774,7 +776,13 @@ def main():
 
     print("Setting up webhook...")
     webhook_url = "https://orobot.onrender.com/webhook"  # آدرس سرورت رو اینجا بذار
-    application.bot.set_webhook(url=webhook_url)
+    await application.bot.set_webhook(url=webhook_url)
+    print("Webhook set successfully!")
+
+def main():
+    # ایجاد حلقه رویداد برای اجرای تابع ناهمزمان
+    loop = asyncio.get_event_loop()
+    loop.run_until_complete(set_webhook())
 
     # اجرای سرور Flask
     port = int(os.getenv("PORT", 8443))
