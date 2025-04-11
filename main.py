@@ -748,6 +748,7 @@ application.add_handler(InlineQueryHandler(inlinequery))
 
 # تعریف مسیرهای aiohttp
 async def webhook(request):
+    print(f"Received webhook request: {request.method} {request.url}")
     update = Update.de_json(await request.json(), application.bot)
     await application.process_update(update)
     return web.Response(text="OK")
@@ -774,6 +775,7 @@ async def main():
     # ایجاد اپلیکیشن aiohttp
     app = web.Application()
     app.router.add_post('/webhook', webhook)
+    app.router.add_get('/webhook', webhook)
     app.router.add_get('/', health_check)
 
     # اجرای سرور
