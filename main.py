@@ -5,7 +5,7 @@ import logging
 from flask import Flask, request
 from telegram import InlineQueryResultArticle, InputTextMessageContent, InlineKeyboardMarkup, InlineKeyboardButton, ReplyKeyboardMarkup, KeyboardButton, ReplyKeyboardRemove, Update
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes, ConversationHandler, CallbackQueryHandler, InlineQueryHandler
-from apscheduler.schedulers.asyncio import AsyncIOScheduler
+from apscheduler.schedulers.background import BackgroundScheduler  # تغییر به BackgroundScheduler
 
 # تنظیم لاگ‌گذاری
 logging.basicConfig(
@@ -767,21 +767,19 @@ def main():
     application.add_handler(conv_handler)
     application.add_handler(InlineQueryHandler(inlinequery))
 
-    # تنظیم زمان‌بندی برای ارسال یادآوری
-    scheduler = AsyncIOScheduler()
-    scheduler.add_job(send_reminder, 'interval', minutes=30, args=[application])
+    # تنظیم زمان‌بندی برای ارسال یادآوری با BackgroundScheduler
+    scheduler = BackgroundScheduler()
+    scheduler.add_job(lambda: application.run_async(send_reminder, context=application), 'interval', minutes=30)
     scheduler.start()
 
     print("Setting up webhook...")
     webhook_url = "https://orobot.onrender.com/webhook"  # آدرس سرورت رو اینجا بذار
-    application.run_webhook(
-        listen="0.0.0.0",
-        port=int(os.getenv("PORT", 8443)),  # پورت از متغیر محیطی گرفته می‌شه
-        url_path="/webhook",
-        webhook_url=webhook_url
-    )
+    application.bot.set_webhook(url=webhook_url)
+
+    # اجرای سرور Flask
+    port = int(os.getenv("PORT", 8443))
+    app.run(host="0.0.0.0", port=port)
 
 if __name__ == '__main__':
     print("Starting main function...")
     main()
-    app.run(host="0.0.0.0", port=int(os.getenv("PORT", 8443)))
