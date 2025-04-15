@@ -9,7 +9,7 @@ if not BOT_TOKEN:
     raise ValueError("BOT_TOKEN not found in environment variables. Please set it in Render Environment Variables.")
 
 PRODUCT, SIZE, PHOTO, EDIT, DISCOUNT, CONTACT, SUPPORT, FAQ_STATE = range(8)
-OPERATOR_ID = "6636775869"
+OPERATOR_ID = "7695028053"
 
 DISCOUNT_CODES = {
     "oro1": "علی", "art2": "سارا", "fac3": "محمد", "nxt4": "نگار", "por5": "رضا",
@@ -23,7 +23,7 @@ PRODUCTS = {
 }
 
 SIZES = {
-    "70×70": {"price": "۲,۴۵۰,۰۰۰ تومان"},
+    "70×70": {"price": 2450000},
     "45×45": {"price": "بزودی"},
     "60×60": {"price": "بزودی"},
     "90×90": {"price": "بزودی"}
@@ -55,6 +55,7 @@ ORDER_KEYBOARD = ReplyKeyboardMarkup(
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     print(f"Received /start command from user: {update.message.from_user.id}")
     context.user_data.clear()
+    context.user_data['current_state'] = PRODUCT  # تنظیم مرحله
     await update.message.reply_text("سلام! 😊 به oro خوش اومدی")
     await update.message.reply_text(
         "بیا یه نگاهی به محصولاتمون بنداز 👀",
@@ -63,6 +64,10 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
             [
                 InlineKeyboardButton("❓ سوالات پرتکرار", switch_inline_query_current_chat="سوالات"),
                 InlineKeyboardButton("💬 ارتباط با پشتیبانی", callback_data="support")
+            ],
+            [
+                InlineKeyboardButton("📖 درباره ما", callback_data="about_us"),
+                InlineKeyboardButton("📷 اینستاگرام", url="https://instagram.com/example")
             ]
         ])
     )
@@ -89,7 +94,7 @@ async def inlinequery(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
                 InlineQueryResultArticle(
                     id=size,
                     title=size,
-                    description=f"💰 رنج قیمت: {info['price']}",
+                    description=f"💰 قیمت: {info['price'] if isinstance(info['price'], str) else f'{info['price']:,} تومان'}".replace(',', '،'),
                     input_message_content=InputTextMessageContent(f"{size}")
                 )
             )
@@ -134,6 +139,7 @@ async def handle_product_selection(update: Update, context: ContextTypes.DEFAULT
         return PRODUCT
 
     context.user_data['product'] = selected_product
+    context.user_data['current_state'] = SIZE  # به‌روزرسانی مرحله
 
     await update.message.reply_text(
         f"{selected_product} انتخاب شد! حالا یه سایز انتخاب کن:",
@@ -153,7 +159,7 @@ async def handle_size_selection(update: Update, context: ContextTypes.DEFAULT_TY
     selected_size = message_text
     size_price = SIZES[selected_size]["price"]
 
-    if size_price == "بزودی":
+    if isinstance(size_price, str) and size_price == "بزودی":
         await update.message.reply_text(
             "متأسفیم، این سایز هنوز آماده نیست! 😔\n"
             "یه سایز دیگه انتخاب کن یا با پشتیبانی حرف بزن:",
@@ -170,6 +176,18 @@ async def handle_size_selection(update: Update, context: ContextTypes.DEFAULT_TY
     context.user_data['size'] = selected_size
     context.user_data['username'] = update.message.from_user.username
     context.user_data['user_id'] = update.message.from_user.id
+    context.user_data['extra_discount_eligible'] = False
+    context.user_data['current_state'] = PHOTO  # به‌روزرسانی مرحله
+
+    # تنظیم یادآوری‌ها برای تست
+    user_id = context.user_data['user_id']
+    chat_id = update.message.chat_id
+    job_data = {'chat_id': chat_id, 'user_id': user_id}
+
+    context.job_queue.run_once(reminder_1hour, 60, data=job_data, name=f"reminder_1h_{user_id}")  # 1 دقیقه
+    context.job_queue.run_once(reminder_1day, 180, data=job_data, name=f"reminder_1d_{user_id}")  # 3 دقیقه
+    context.job_queue.run_once(reminder_3days, 300, data=job_data, name=f"reminder_3d_{user_id}")  # 5 دقیقه
+    context.job_queue.run_once(clear_data, 420, data=job_data, name=f"clear_data_{user_id}")  # 7 دقیقه
 
     await update.message.reply_text(
         f"عالیه. 👏\nانتخابت حرف نداره ✨\nپس انتخابت شد: {context.user_data['product']} {selected_size}"
@@ -179,6 +197,69 @@ async def handle_size_selection(update: Update, context: ContextTypes.DEFAULT_TY
         reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("✅ متوجه شدم", callback_data="understood")]])
     )
     return PHOTO
+
+async def resume_order(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    query = update.callback_query
+    await query.answer()
+
+    if not context.user_data:
+        await query.message.reply_text(
+            "به نظر می‌رسه سفارشت پاک شده! 😔 بیا از اول شروع کنیم:",
+            reply_markup=InlineKeyboardMarkup([
+                [InlineKeyboardButton("محصولات 🎉", switch_inline_query_current_chat="محصولات")]
+            ])
+        )
+        return PRODUCT
+    elif 'product' not in context.user_data:
+        await query.message.reply_text(
+            "بیا از اول شروع کنیم! 😊",
+            reply_markup=InlineKeyboardMarkup([
+                [InlineKeyboardButton("محصولات 🎉", switch_inline_query_current_chat="محصولات")]
+            ])
+        )
+        return PRODUCT
+    elif 'size' not in context.user_data:
+        await query.message.reply_text(
+            "یه سایز انتخاب کن:",
+            reply_markup=InlineKeyboardMarkup([
+                [InlineKeyboardButton("انتخاب سایز 📏", switch_inline_query_current_chat="سایز")]
+            ])
+        )
+        return SIZE
+    elif 'photo' not in context.user_data:
+        await query.message.reply_text(
+            "عکست رو بفرست! 📸",
+            reply_markup=ORDER_KEYBOARD
+        )
+        return PHOTO
+    elif 'edit' not in context.user_data:
+        await query.message.reply_text(
+            "نیاز به ادیت داره؟ ✂️",
+            reply_markup=ReplyKeyboardMarkup([["بله", "خیر"]], one_time_keyboard=True, resize_keyboard=True)
+        )
+        return EDIT
+    elif 'discount' not in context.user_data:
+        await query.message.reply_text(
+            "کد تخفیف داری؟ 🎁\nهمینجا برامون بنویس، وگرنه دکمه زیر رو بزن:",
+            reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("💸 کد تخفیف ندارم", callback_data="no_discount")]])
+        )
+        return DISCOUNT
+    elif 'contact' not in context.user_data and not context.user_data.get('username'):
+        await query.message.reply_text(
+            "لطفاً شماره تلفنتون رو به اشتراک بذارید 📞",
+            reply_markup=ReplyKeyboardMarkup(
+                [[KeyboardButton("ارسال شماره تلفن 📱", request_contact=True)]],
+                one_time_keyboard=True,
+                resize_keyboard=True
+            )
+        )
+        return CONTACT
+    else:
+        await query.message.reply_text(
+            "سفارشت تقریباً آماده‌ست! 😊 با پشتیبانی تماس بگیر یا دوباره شروع کن:",
+            reply_markup=MAIN_KEYBOARD
+        )
+        return ConversationHandler.END
 
 async def photo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     print("Entering photo state...")
@@ -197,7 +278,7 @@ async def photo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
         )
         return PHOTO
 
-    if not update.message.photo:
+   te اگر not update.message.photo:
         await update.message.reply_text(
             "متاسفم. 😔 من نمیتونم فایل دریافت کنم. یه عکس ساده بفرست 📸\n"
             "از همین پایین 📎 رو بزن و انتخاب کن!",
@@ -206,6 +287,7 @@ async def photo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
         return PHOTO
 
     context.user_data['photo'] = update.message.photo[-1].file_id
+    context.user_data['current_state'] = EDIT  # به‌روزرسانی مرحله
 
     await update.message.reply_text(
         "عجب عکس باحالی! 😍\nنیاز به ادیت داره؟ ✂️\nیعنی میخوای چیزی توش عوض کنی؟\n"
@@ -225,6 +307,8 @@ async def edit(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
         await update.message.reply_text("باشه! ✅")
     else:
         await update.message.reply_text("حله! فتوشاپ‌کارامون زودی دست به کار می‌شن! ✂️")
+
+    context.user_data['current_state'] = DISCOUNT  # به‌روزرسانی مرحله
 
     await update.message.reply_text(
         "کد تخفیف داری؟ 🎁\nهمینجا برامون بنویس، وگرنه دکمه زیر رو بزن:",
@@ -254,10 +338,19 @@ async def discount(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
             )
             return DISCOUNT
 
+    user_id = context.user_data['user_id']
+    context.user_data['order_completed'] = True
+
+    # غیرفعال کردن یادآوری‌ها
+    for job in context.job_queue.jobs():
+        if job.name in [f"reminder_1h_{user_id}", f"reminder_1d_{user_id}", f"reminder_3d_{user_id}", f"clear_data_{user_id}"]:
+            job.schedule_removal()
+
+    # اگر کاربر یوزرنیم نداشته باشه، نیاز به شماره تماس داره
     if not context.user_data.get('username'):
+        context.user_data['current_state'] = CONTACT  # به‌روزرسانی مرحله
         await (update.callback_query.message if update.callback_query else update.message).reply_text(
-            "برای اینکه بتونیم باهاتون تماس بگیریم، لطفاً شماره تلفنتون رو به اشتراک بذارید 📞\n"
-            "کافیه دکمه زیر رو بزنید:",
+            "لطفاً شماره تلفنتون رو به اشتراک بذارید 📞",
             reply_markup=ReplyKeyboardMarkup(
                 [[KeyboardButton("ارسال شماره تلفن 📱", request_contact=True)]],
                 one_time_keyboard=True,
@@ -266,9 +359,16 @@ async def discount(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
         )
         return CONTACT
 
+    base_price = SIZES[context.user_data['size']]['price']
+    discount_amount = 240000 if context.user_data['discount'] in DISCOUNT_CODES else 0
+    extra_discount = 100000 if context.user_data.get('extra_discount_eligible', False) else 0
+    final_price = base_price - discount_amount - extra_discount
+    final_price_str = f"{final_price:,} تومان".replace(',', '،')
+
+    extra_discount_message = " و به‌خاطر تکمیل سریع سفارش، ۱۰۰,۰۰۰ تومن تخفیف بیشتر برات اعمال شد! 🎉" if extra_discount else ""
     await (update.callback_query.message if update.callback_query else update.message).reply_text(
-        "سفارشت ثبت شد. 🎉\nمنتظر پیاممون باش. زودی باهات تماس میگیریم و هماهنگ میشیم! 📞\n"
-        "مرسی که با oro همراه شدی. 🙏",
+        f"سفارشت ثبت شد. 🎉\nمنتظر پیاممون باش. زودی باهات تماس می‌گیریم و هماهنگ می‌شیم! 📞\n"
+        f"مرسی که با oro همراه شدی. 🙏{extra_discount_message}",
         reply_markup=InlineKeyboardMarkup([
             [InlineKeyboardButton("محصولات 🎉", switch_inline_query_current_chat="محصولات")],
             [
@@ -282,13 +382,15 @@ async def discount(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
         "راستی اینم پیج اینستامونه. به دوستات هم معرفی کن 📷\nhttps://instagram.com/example"
     )
 
+    extra_discount_operator = " (تخفیف بیشتر ۱۰۰,۰۰۰ تومانی اعمال شد)" if extra_discount else ""
     message_to_operator = (
         "سفارش جدید:\n"
         f"- محصول: {context.user_data['product']}\n"
         f"- ابعاد: {context.user_data['size']}\n"
         f"- آیدی: @{context.user_data['username']}\n"
         f"- ادیت عکس: {context.user_data['edit']}\n"
-        f"- کد تخفیف: {context.user_data['discount']}{marketer}"
+        f"- کد تخفیف: {context.user_data['discount']}{marketer}{extra_discount_operator}\n"
+        f"- قیمت نهایی: {final_price_str}"
     )
     try:
         await context.bot.send_message(chat_id=OPERATOR_ID, text=message_to_operator)
@@ -305,13 +407,28 @@ async def contact(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
         phone_number = update.message.contact.phone_number
         context.user_data['contact'] = phone_number
 
+        user_id = context.user_data['user_id']
+        context.user_data['order_completed'] = True
+
+        # غیرفعال کردن یادآوری‌ها
+        for job in context.job_queue.jobs():
+            if job.name in [f"reminder_1h_{user_id}", f"reminder_1d_{user_id}", f"reminder_3d_{user_id}", f"clear_data_{user_id}"]:
+                job.schedule_removal()
+
+        base_price = SIZES[context.user_data['size']]['price']
+        discount_amount = 240000 if context.user_data['discount'] in DISCOUNT_CODES else 0
+        extra_discount = 100000 if context.user_data.get('extra_discount_eligible', False) else 0
+        final_price = base_price - discount_amount - extra_discount
+        final_price_str = f"{final_price:,} تومان".replace(',', '،')
+
+        extra_discount_message = " و به‌خاطر تکمیل سریع سفارش، ۱۰۰,۰۰۰ تومن تخفیف بیشتر برات اعمال شد! 🎉" if extra_discount else ""
         await update.message.reply_text(
-            "ممنون که شماره‌ت رو به اشتراک گذاشتی! 🙏",
+            f"ممنون که شماره‌ت رو به اشتراک گذاشتی! 🙏{extra_discount_message}",
             reply_markup=ReplyKeyboardRemove()
         )
         await update.message.reply_text(
-            "سفارشت ثبت شد. 🎉\nمنتظر پیاممون باش. زودی باهات تماس میگیریم و هماهنگ میشیم! 📞\n"
-            "مرسی که با oro همراه شدی. 🙏",
+            f"سفارشت ثبت شد. 🎉\nمنتظر پیاممون باش. زودی باهات تماس می‌گیریم و هماهنگ می‌شیم! 📞\n"
+            f"مرسی که با oro همراه شدی. 🙏",
             reply_markup=InlineKeyboardMarkup([
                 [InlineKeyboardButton("محصولات 🎉", switch_inline_query_current_chat="محصولات")],
                 [
@@ -325,6 +442,7 @@ async def contact(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
             "راستی اینم پیج اینستامونه. به دوستات هم معرفی کن 📷\nhttps://instagram.com/example"
         )
 
+        extra_discount_operator = " (تخفیف بیشتر ۱۰۰,۰۰۰ تومانی اعمال شد)" if extra_discount else ""
         marketer = f" (بازاریاب: {DISCOUNT_CODES[context.user_data['discount']]})" if context.user_data['discount'] in DISCOUNT_CODES else ""
         message_to_operator = (
             "سفارش جدید:\n"
@@ -332,7 +450,8 @@ async def contact(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
             f"- ابعاد: {context.user_data['size']}\n"
             f"- شماره تماس: {context.user_data['contact']}\n"
             f"- ادیت عکس: {context.user_data['edit']}\n"
-            f"- کد تخفیف: {context.user_data['discount']}{marketer}"
+            f"- کد تخفیف: {context.user_data['discount']}{marketer}{extra_discount_operator}\n"
+            f"- قیمت نهایی: {final_price_str}"
         )
         try:
             await context.bot.send_message(chat_id=OPERATOR_ID, text=message_to_operator)
@@ -352,6 +471,17 @@ async def contact(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
             )
         )
         return CONTACT
+
+async def about_us(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    query = update.callback_query
+    await query.answer()
+    await query.message.reply_text(
+        "ما مجموعه oro هستیم! 🎨\n"
+        "یه تیم جوون و خلاق از اردبیل که عاشق خلق آثار هنری خاص مثل تابلوهای نخی هستیم. "
+        "هدفمون اینه که با هنر، خاطرات شما رو ماندگار کنیم. همراهمون باشین! 😎",
+        reply_markup=MAIN_KEYBOARD
+    )
+    return PRODUCT
 
 async def support(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     print("Entering support state...")
@@ -438,6 +568,82 @@ async def restart(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     print("Restarting conversation...")
     return await start(update, context)
 
+def get_state_message(state):
+    if state == PRODUCT:
+        return "یادت رفته تابلوی خودت رو انتخاب کنی"
+    elif state == SIZE:
+        return "یادت رفته سایز تابلو رو انتخاب کنی"
+    elif state == PHOTO:
+        return "یادت رفته عکست رو بفرستی"
+    elif state == EDIT:
+        return "یادت رفته بگی عکست نیاز به ادیت داره یا نه"
+    elif state == DISCOUNT:
+        return "یادت رفته کد تخفیف وارد کنی یا بگی که نداری"
+    elif state == CONTACT:
+        return "یادت رفته شماره تلفنت رو بفرستی"
+    else:
+        return "به نظر می‌رسه تو یه مرحله‌ی نامشخصی هستی، بیا از اول شروع کنیم"
+
+async def reminder_1hour(context: ContextTypes.DEFAULT_TYPE):
+    print("Sending 1-hour reminder...")
+    job_data = context.job.data
+    current_state = context.user_data.get('current_state', PRODUCT)
+    state_message = get_state_message(current_state)
+    await context.bot.send_message(
+        chat_id=job_data['chat_id'],
+        text=(
+            f"سلام دوست خوبم! 🌟\n"
+            f"ما هنوز منتظریم تا سفارشت رو کامل کنی.\n"
+            f"بیا ادامه بدیم و یه تابلو نخی فوق‌العاده برات بسازیم! 🎨\n\n"
+            f"راستی، {state_message}!"
+        )
+    )
+
+async def reminder_1day(context: ContextTypes.DEFAULT_TYPE):
+    print("Sending 1-day reminder...")
+    job_data = context.job.data
+    context.user_data['extra_discount_eligible'] = True  # فعال کردن تخفیف اضافی
+    current_state = context.user_data.get('current_state', PRODUCT)
+    state_message = get_state_message(current_state)
+    await context.bot.send_message(
+        chat_id=job_data['chat_id'],
+        text=(
+            f"سلام رفیق عزیز! ✨\n"
+            f"یه روزه که oro منتظرته!\n"
+            f"اگه تا آخر امروز سفارشت رو تکمیل کنی، ۱۰۰,۰۰۰ تومن تخفیف بیشتر می‌گیرید! 🎁\n"
+            f"بیا تمومش کنیم! 💪\n\n"
+            f"راستی، {state_message}!"
+        )
+    )
+
+async def reminder_3days(context: ContextTypes.DEFAULT_TYPE):
+    print("Sending 3-days reminder...")
+    job_data = context.job.data
+    product = context.user_data.get('product', 'محصول انتخابی')
+    current_state = context.user_data.get('current_state', PRODUCT)
+    state_message = get_state_message(current_state)
+    await context.bot.send_message(
+        chat_id=job_data['chat_id'],
+        text=(
+            f"سلام دوست عزیز! ⚠️\n"
+            f"موجودی {product} رو به اتمامه و ممکنه اطلاعات سفارشت پاک بشه!\n"
+            f"تا دیر نشده، همین امروز سفارشت رو کامل کن تا خیالت راحت بشه. 🖼️\n\n"
+            f"راستی، {state_message}!"
+        )
+    )
+
+async def clear_data(context: ContextTypes.DEFAULT_TYPE):
+    print("Clearing user data after 7 minutes...")
+    context.user_data.clear()
+
+async def error_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    print(f"Error occurred: {context.error}")
+    if isinstance(context.error, telegram.error.Conflict):
+        print("Conflict error: Another instance of the bot is running. Stopping this instance...")
+        await context.application.stop()
+    else:
+        print("Unhandled error:", context.error)
+
 def main():
     print("Building Telegram application...")
     application = Application.builder().token(BOT_TOKEN).build()
@@ -448,42 +654,56 @@ def main():
             MessageHandler(filters.Regex('^🎨 شروع دوباره$'), restart),
             MessageHandler(filters.Regex('^💬 ارتباط با پشتیبانی$'), support),
             CallbackQueryHandler(support, pattern="^support$"),
+            CallbackQueryHandler(about_us, pattern="^about_us$"),
+            CallbackQueryHandler(resume_order, pattern="^resume_order$"),
         ],
         states={
             PRODUCT: [
                 MessageHandler(filters.Regex('^💬 ارتباط با پشتیبانی$'), support),
                 CallbackQueryHandler(support, pattern="^support$"),
+                CallbackQueryHandler(about_us, pattern="^about_us$"),
                 MessageHandler(filters.Text() & ~filters.Command(), handle_product_selection)
             ],
             SIZE: [
                 MessageHandler(filters.Regex('^💬 ارتباط با پشتیبانی$'), support),
+                CallbackQueryHandler(support, pattern="^support$"),
+                CallbackQueryHandler(about_us, pattern="^about_us$"),
                 MessageHandler(filters.Text() & ~filters.Command(), handle_size_selection)
             ],
             PHOTO: [
                 MessageHandler(filters.Regex('^💬 ارتباط با پشتیبانی$'), support),
+                CallbackQueryHandler(support, pattern="^support$"),
+                CallbackQueryHandler(about_us, pattern="^about_us$"),
                 CallbackQueryHandler(photo, pattern="^understood$"),
                 MessageHandler(filters.ALL & ~filters.Command(), photo)
             ],
             EDIT: [
                 MessageHandler(filters.Regex('^💬 ارتباط با پشتیبانی$'), support),
+                CallbackQueryHandler(support, pattern="^support$"),
+                CallbackQueryHandler(about_us, pattern="^about_us$"),
                 MessageHandler(filters.Regex('^(بله|خیر)$'), edit)
             ],
             DISCOUNT: [
                 MessageHandler(filters.Regex('^💬 ارتباط با پشتیبانی$'), support),
+                CallbackQueryHandler(support, pattern="^support$"),
+                CallbackQueryHandler(about_us, pattern="^about_us$"),
                 CallbackQueryHandler(discount, pattern="^no_discount$"),
                 MessageHandler(filters.Text() & ~filters.Command(), discount)
             ],
             CONTACT: [
                 MessageHandler(filters.CONTACT, contact),
-                MessageHandler(filters.ALL & ~filters.Command(), contact)
+                MessageHandler(filters.ALL & ~filters.Command(), contact),
+                CallbackQueryHandler(about_us, pattern="^about_us$"),
             ],
             SUPPORT: [
                 CallbackQueryHandler(handle_support, pattern="^send_to_operator$"),
-                MessageHandler(filters.Text() & ~filters.Command(), handle_support)
+                MessageHandler(filters.Text() & ~filters.Command(), handle_support),
+                CallbackQueryHandler(about_us, pattern="^about_us$"),
             ],
             FAQ_STATE: [
                 MessageHandler(filters.Regex('^💬 ارتباط با پشتیبانی$'), support),
-                MessageHandler(filters.Text() & ~filters.Command(), handle_faq_selection)
+                MessageHandler(filters.Text() & ~filters.Command(), handle_faq_selection),
+                CallbackQueryHandler(about_us, pattern="^about_us$"),
             ],
         },
         fallbacks=[
@@ -498,6 +718,7 @@ def main():
     print("Adding handlers to application...")
     application.add_handler(conv_handler)
     application.add_handler(InlineQueryHandler(inlinequery))
+    application.add_error_handler(error_handler)
 
     print("Bot is running...")
     application.run_polling()
