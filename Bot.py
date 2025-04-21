@@ -90,13 +90,16 @@ async def inlinequery(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
             )
     elif query == "سایز":
         for size, info in SIZES.items():
-            results.append(
-                InlineQueryResultArticle(
-                    id=size,
-                    title=size,
-                    description=f"💰 قیمت: {info['price'] if isinstance(info['price'], str) else f'{info['price']:,} تومان'}".replace(',', '،'),
-                    input_message_content=InputTextMessageContent(f"{size}")
-                )
+           results.append(
+    InlineQueryResultArticle(
+        id=size,
+        title=size,
+        description="💰 قیمت: {}".format(
+            info['price'] if isinstance(info['price'], str) else "{:,} تومان".format(info['price'])
+        ).replace(',', '،'),
+        input_message_content=InputTextMessageContent(f"{size}")
+    )
+)
             )
     elif query in ["سوالات", "سوال"]:
         for question in FAQ.keys():
