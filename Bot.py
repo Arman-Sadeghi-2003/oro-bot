@@ -100,8 +100,7 @@ async def inlinequery(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         input_message_content=InputTextMessageContent(f"{size}")
     )
 )
-            )
-    elif query in ["سوالات", "سوال"]:
+            elif query in ["سوالات", "سوال"]:
         for question in FAQ.keys():
             results.append(
                 InlineQueryResultArticle(
