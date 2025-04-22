@@ -1,12 +1,18 @@
 import os
+import logging
 from telegram import InlineQueryResultArticle, InputTextMessageContent, InlineKeyboardMarkup, InlineKeyboardButton, ReplyKeyboardMarkup, KeyboardButton, ReplyKeyboardRemove, Update
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes, ConversationHandler, CallbackQueryHandler, InlineQueryHandler
 import asyncio
+import telegram.error
 
-print("Fetching BOT_TOKEN from environment...")
+# تنظیم لاگ‌گیری
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
+
+logger.info("Fetching BOT_TOKEN from environment...")
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 if not BOT_TOKEN:
-    raise ValueError("BOT_TOKEN not found in environment variables. Please set it in Render Environment Variables.")
+    raise ValueError("BOT_TOKEN not found in environment variables. Please set it in Railway Environment Variables.")
 
 PRODUCT, SIZE, PHOTO, EDIT, DISCOUNT, CONTACT, SUPPORT, FAQ_STATE = range(8)
 OPERATOR_ID = "7695028053"
@@ -53,9 +59,9 @@ ORDER_KEYBOARD = ReplyKeyboardMarkup(
 )
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    print(f"Received /start command from user: {update.message.from_user.id}")
+    logger.info(f"Received /start command from user: {update.message.from_user.id}")
     context.user_data.clear()
-    context.user_data['current_state'] = PRODUCT  # تنظیم مرحله
+    context.user_data['current_state'] = PRODUCT
     await update.message.reply_text("سلام! 😊 به oro خوش اومدی")
     await update.message.reply_text(
         "بیا یه نگاهی به محصولاتمون بنداز 👀",
@@ -74,7 +80,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     return PRODUCT
 
 async def inlinequery(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    print(f"Received inline query: {update.inline_query.query}")
+    logger.info(f"Received inline query: {update.inline_query.query}")
     query = update.inline_query.query.lower()
     results = []
 
@@ -90,16 +96,17 @@ async def inlinequery(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
             )
     elif query == "سایز":
         for size, info in SIZES.items():
-           results.append(
-    InlineQueryResultArticle(
-        id=size,
-        title=size,
-        description="💰 قیمت: {}".format(
-            info['price'] if isinstance(info['price'], str) else "{:,} تومان".format(info['price'])
-        ).replace(',', '،'),
-        input_message_content=InputTextMessageContent(f"{size}")
-    )
-  elif query in ["سوالات", "سوال"]:
+            price = info['price']
+            price_display = price if isinstance(price, str) else f"{price:,} تومان".replace(',', '،')
+            results.append(
+                InlineQueryResultArticle(
+                    id=size,
+                    title=size,
+                    description=f"💰 قیمت: {price_display}",
+                    input_message_content=InputTextMessageContent(f"{size}")
+                )
+            )
+    elif query in ["سوالات", "سوال"]:
         for question in FAQ.keys():
             results.append(
                 InlineQueryResultArticle(
@@ -109,11 +116,20 @@ async def inlinequery(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
                     input_message_content=InputTextMessageContent(f"{question}")
                 )
             )
+    else:
+        results.append(
+            InlineQueryResultArticle(
+                id="no_results",
+                title="نتیجه‌ای یافت نشد",
+                description="لطفاً محصولات یا سوالات رو انتخاب کنید.",
+                input_message_content=InputTextMessageContent("نتیجه‌ای یافت نشد")
+            )
+        )
 
     await update.inline_query.answer(results)
 
 async def handle_product_selection(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    print(f"Handling product selection: {update.message.text}")
+    logger.info(f"Handling product selection: {update.message.text}")
     message_text = update.message.text
     if message_text in FAQ:
         await update.message.reply_text(FAQ[message_text])
@@ -140,7 +156,7 @@ async def handle_product_selection(update: Update, context: ContextTypes.DEFAULT
         return PRODUCT
 
     context.user_data['product'] = selected_product
-    context.user_data['current_state'] = SIZE  # به‌روزرسانی مرحله
+    context.user_data['current_state'] = SIZE
 
     await update.message.reply_text(
         f"{selected_product} انتخاب شد! حالا یه سایز انتخاب کن:",
@@ -151,7 +167,7 @@ async def handle_product_selection(update: Update, context: ContextTypes.DEFAULT
     return SIZE
 
 async def handle_size_selection(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    print(f"Handling size selection: {update.message.text}")
+    logger.info(f"Handling size selection: {update.message.text}")
     message_text = update.message.text
     if message_text not in SIZES:
         await update.message.reply_text("لطفاً یه سایز از منو انتخاب کن! 😊")
@@ -178,17 +194,16 @@ async def handle_size_selection(update: Update, context: ContextTypes.DEFAULT_TY
     context.user_data['username'] = update.message.from_user.username
     context.user_data['user_id'] = update.message.from_user.id
     context.user_data['extra_discount_eligible'] = False
-    context.user_data['current_state'] = PHOTO  # به‌روزرسانی مرحله
+    context.user_data['current_state'] = PHOTO
 
-    # تنظیم یادآوری‌ها برای تست
     user_id = context.user_data['user_id']
     chat_id = update.message.chat_id
     job_data = {'chat_id': chat_id, 'user_id': user_id}
 
-    context.job_queue.run_once(reminder_1hour, 60, data=job_data, name=f"reminder_1h_{user_id}")  # 1 دقیقه
-    context.job_queue.run_once(reminder_1day, 180, data=job_data, name=f"reminder_1d_{user_id}")  # 3 دقیقه
-    context.job_queue.run_once(reminder_3days, 300, data=job_data, name=f"reminder_3d_{user_id}")  # 5 دقیقه
-    context.job_queue.run_once(clear_data, 420, data=job_data, name=f"clear_data_{user_id}")  # 7 دقیقه
+    context.job_queue.run_once(reminder_1hour, 3600, data=job_data, name=f"reminder_1h_{user_id}")  # 1 ساعت
+    context.job_queue.run_once(reminder_1day, 86400, data=job_data, name=f"reminder_1d_{user_id}")  # 1 روز
+    context.job_queue.run_once(reminder_3days, 259200, data=job_data, name=f"reminder_3d_{user_id}")  # 3 روز
+    context.job_queue.run_once(clear_data, 604800, data=job_data, name=f"clear_data_{user_id}")  # 7 روز
 
     await update.message.reply_text(
         f"عالیه. 👏\nانتخابت حرف نداره ✨\nپس انتخابت شد: {context.user_data['product']} {selected_size}"
@@ -263,7 +278,7 @@ async def resume_order(update: Update, context: ContextTypes.DEFAULT_TYPE) -> in
         return ConversationHandler.END
 
 async def photo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    print("Entering photo state...")
+    logger.info("Entering photo state...")
     if update.callback_query:
         query = update.callback_query
         await query.answer()
@@ -279,7 +294,7 @@ async def photo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
         )
         return PHOTO
 
-   te اگر not update.message.photo:
+    if not update.message.photo:
         await update.message.reply_text(
             "متاسفم. 😔 من نمیتونم فایل دریافت کنم. یه عکس ساده بفرست 📸\n"
             "از همین پایین 📎 رو بزن و انتخاب کن!",
@@ -288,7 +303,7 @@ async def photo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
         return PHOTO
 
     context.user_data['photo'] = update.message.photo[-1].file_id
-    context.user_data['current_state'] = EDIT  # به‌روزرسانی مرحله
+    context.user_data['current_state'] = EDIT
 
     await update.message.reply_text(
         "عجب عکس باحالی! 😍\nنیاز به ادیت داره؟ ✂️\nیعنی میخوای چیزی توش عوض کنی؟\n"
@@ -298,7 +313,7 @@ async def photo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     return EDIT
 
 async def edit(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    print(f"Handling edit selection: {update.message.text}")
+    logger.info(f"Handling edit selection: {update.message.text}")
     context.user_data['edit'] = update.message.text
     if context.user_data['edit'] not in ["بله", "خیر"]:
         await update.message.reply_text("لطفاً فقط 'بله' یا 'خیر' رو بگو! 😊")
@@ -309,7 +324,7 @@ async def edit(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     else:
         await update.message.reply_text("حله! فتوشاپ‌کارامون زودی دست به کار می‌شن! ✂️")
 
-    context.user_data['current_state'] = DISCOUNT  # به‌روزرسانی مرحله
+    context.user_data['current_state'] = DISCOUNT
 
     await update.message.reply_text(
         "کد تخفیف داری؟ 🎁\nهمینجا برامون بنویس، وگرنه دکمه زیر رو بزن:",
@@ -318,7 +333,7 @@ async def edit(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     return DISCOUNT
 
 async def discount(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    print("Entering discount state...")
+    logger.info("Entering discount state...")
     if update.callback_query:
         query = update.callback_query
         await query.answer()
@@ -342,14 +357,12 @@ async def discount(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     user_id = context.user_data['user_id']
     context.user_data['order_completed'] = True
 
-    # غیرفعال کردن یادآوری‌ها
     for job in context.job_queue.jobs():
         if job.name in [f"reminder_1h_{user_id}", f"reminder_1d_{user_id}", f"reminder_3d_{user_id}", f"clear_data_{user_id}"]:
             job.schedule_removal()
 
-    # اگر کاربر یوزرنیم نداشته باشه، نیاز به شماره تماس داره
     if not context.user_data.get('username'):
-        context.user_data['current_state'] = CONTACT  # به‌روزرسانی مرحله
+        context.user_data['current_state'] = CONTACT
         await (update.callback_query.message if update.callback_query else update.message).reply_text(
             "لطفاً شماره تلفنتون رو به اشتراک بذارید 📞",
             reply_markup=ReplyKeyboardMarkup(
@@ -397,13 +410,14 @@ async def discount(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
         await context.bot.send_message(chat_id=OPERATOR_ID, text=message_to_operator)
         await context.bot.send_photo(chat_id=OPERATOR_ID, photo=context.user_data['photo'])
     except Exception as e:
+        logger.error(f"Error sending to operator: {e}")
         await context.bot.send_message(chat_id=OPERATOR_ID, text=f"خطا در ارسال به اپراتور: {e}")
 
     context.user_data.clear()
     return ConversationHandler.END
 
 async def contact(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    print("Entering contact state...")
+    logger.info("Entering contact state...")
     if update.message.contact:
         phone_number = update.message.contact.phone_number
         context.user_data['contact'] = phone_number
@@ -411,7 +425,6 @@ async def contact(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
         user_id = context.user_data['user_id']
         context.user_data['order_completed'] = True
 
-        # غیرفعال کردن یادآوری‌ها
         for job in context.job_queue.jobs():
             if job.name in [f"reminder_1h_{user_id}", f"reminder_1d_{user_id}", f"reminder_3d_{user_id}", f"clear_data_{user_id}"]:
                 job.schedule_removal()
@@ -458,6 +471,7 @@ async def contact(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
             await context.bot.send_message(chat_id=OPERATOR_ID, text=message_to_operator)
             await context.bot.send_photo(chat_id=OPERATOR_ID, photo=context.user_data['photo'])
         except Exception as e:
+            logger.error(f"Error sending to operator: {e}")
             await context.bot.send_message(chat_id=OPERATOR_ID, text=f"خطا در ارسال به اپراتور: {e}")
 
         context.user_data.clear()
@@ -485,13 +499,13 @@ async def about_us(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     return PRODUCT
 
 async def support(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    print("Entering support state...")
+    logger.info("Entering support state...")
     if update.callback_query:
         query = update.callback_query
-        print(f"Support called via callback query with data: {query.data}")
+        logger.info(f"Support called via callback query with data: {query.data}")
         await query.answer()
     else:
-        print("Support called via keyboard button")
+        logger.info("Support called via keyboard button")
     context.user_data['support_message'] = ""
     await (update.callback_query.message if update.callback_query else update.message).reply_text(
         "سلام رفیق! 😊 مشکلی داری؟ سوالی داری؟ هر چی هست برامون بنویس! 📩\nپشتیبانای خفنمون زودی جوابت رو می‌دن! 💪",
@@ -500,13 +514,13 @@ async def support(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     return SUPPORT
 
 async def handle_support(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    print("Handling support message...")
+    logger.info("Handling support message...")
     if update.callback_query:
         query = update.callback_query
-        print(f"Callback query received with data: {query.data}")
+        logger.info(f"Callback query received with data: {query.data}")
         await query.answer()
         if query.data == "send_to_operator":
-            print("Sending message to operator...")
+            logger.info("Sending message to operator...")
             username = query.from_user.username
             user_id = query.from_user.id
             contact_info = f"آیدی: @{username}" if username else f"لینک چت: https://t.me/+{user_id}"
@@ -523,7 +537,7 @@ async def handle_support(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
             context.user_data.clear()
             return ConversationHandler.END
     else:
-        print(f"Support message received: {update.message.text}")
+        logger.info(f"Support message received: {update.message.text}")
 
     new_message = update.message.text
     if context.user_data['support_message']:
@@ -538,7 +552,7 @@ async def handle_support(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     return SUPPORT
 
 async def faq(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    print("Entering FAQ state...")
+    logger.info("Entering FAQ state...")
     await update.message.reply_text(
         "سوالتو انتخاب کن:",
         reply_markup=InlineKeyboardMarkup([
@@ -548,7 +562,7 @@ async def faq(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     return FAQ_STATE
 
 async def handle_faq_selection(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    print(f"Handling FAQ selection: {update.message.text}")
+    logger.info(f"Handling FAQ selection: {update.message.text}")
     message_text = update.message.text
     if message_text not in FAQ:
         await update.message.reply_text("لطفاً یه سوال درست انتخاب کن رفیق! 😜")
@@ -558,7 +572,7 @@ async def handle_faq_selection(update: Update, context: ContextTypes.DEFAULT_TYP
     return ConversationHandler.END
 
 async def faq_during_order(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    print("FAQ during order state...")
+    logger.info("FAQ during order state...")
     await update.message.reply_text(
         "لطفاً مراحل ثبت سفارش رو کامل کن یا 'شروع دوباره' رو بزن! 😊",
         reply_markup=ORDER_KEYBOARD
@@ -566,7 +580,7 @@ async def faq_during_order(update: Update, context: ContextTypes.DEFAULT_TYPE) -
     return None
 
 async def restart(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    print("Restarting conversation...")
+    logger.info("Restarting conversation...")
     return await start(update, context)
 
 def get_state_message(state):
@@ -586,7 +600,7 @@ def get_state_message(state):
         return "به نظر می‌رسه تو یه مرحله‌ی نامشخصی هستی، بیا از اول شروع کنیم"
 
 async def reminder_1hour(context: ContextTypes.DEFAULT_TYPE):
-    print("Sending 1-hour reminder...")
+    logger.info("Sending 1-hour reminder...")
     job_data = context.job.data
     current_state = context.user_data.get('current_state', PRODUCT)
     state_message = get_state_message(current_state)
@@ -601,9 +615,9 @@ async def reminder_1hour(context: ContextTypes.DEFAULT_TYPE):
     )
 
 async def reminder_1day(context: ContextTypes.DEFAULT_TYPE):
-    print("Sending 1-day reminder...")
+    logger.info("Sending 1-day reminder...")
     job_data = context.job.data
-    context.user_data['extra_discount_eligible'] = True  # فعال کردن تخفیف اضافی
+    context.user_data['extra_discount_eligible'] = True
     current_state = context.user_data.get('current_state', PRODUCT)
     state_message = get_state_message(current_state)
     await context.bot.send_message(
@@ -618,7 +632,7 @@ async def reminder_1day(context: ContextTypes.DEFAULT_TYPE):
     )
 
 async def reminder_3days(context: ContextTypes.DEFAULT_TYPE):
-    print("Sending 3-days reminder...")
+    logger.info("Sending 3-days reminder...")
     job_data = context.job.data
     product = context.user_data.get('product', 'محصول انتخابی')
     current_state = context.user_data.get('current_state', PRODUCT)
@@ -634,19 +648,21 @@ async def reminder_3days(context: ContextTypes.DEFAULT_TYPE):
     )
 
 async def clear_data(context: ContextTypes.DEFAULT_TYPE):
-    print("Clearing user data after 7 minutes...")
+    logger.info("Clearing user data after 7 days...")
     context.user_data.clear()
 
 async def error_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    print(f"Error occurred: {context.error}")
+    logger.error(f"Error occurred: {context.error}")
     if isinstance(context.error, telegram.error.Conflict):
-        print("Conflict error: Another instance of the bot is running. Stopping this instance...")
+        logger.error("Conflict error: Another instance of the bot is running. Stopping this instance...")
         await context.application.stop()
     else:
-        print("Unhandled error:", context.error)
+        logger.error(f"Unhandled error: {context.error}")
+        with open("error_log.txt", "a") as f:
+            f.write(f"{context.error}\n")
 
 def main():
-    print("Building Telegram application...")
+    logger.info("Building Telegram application...")
     application = Application.builder().token(BOT_TOKEN).build()
 
     conv_handler = ConversationHandler(
@@ -716,15 +732,15 @@ def main():
         per_user=True,
         per_message=False
     )
-    print("Adding handlers to application...")
+    logger.info("Adding handlers to application...")
     application.add_handler(conv_handler)
     application.add_handler(InlineQueryHandler(inlinequery))
     application.add_error_handler(error_handler)
 
-    print("Bot is running...")
+    logger.info("Bot is running...")
     application.run_polling()
-    print("Polling started successfully!")
+    logger.info("Polling started successfully!")
 
 if __name__ == '__main__':
-    print("Starting main function...")
+    logger.info("Starting main function...")
     main()
