@@ -200,10 +200,15 @@ async def handle_size_selection(update: Update, context: ContextTypes.DEFAULT_TY
     chat_id = update.message.chat_id
     job_data = {'chat_id': chat_id, 'user_id': user_id}
 
-    context.job_queue.run_once(reminder_1hour, 3600, data=job_data, name=f"reminder_1h_{user_id}")  # 1 ساعت
-    context.job_queue.run_once(reminder_1day, 86400, data=job_data, name=f"reminder_1d_{user_id}")  # 1 روز
-    context.job_queue.run_once(reminder_3days, 259200, data=job_data, name=f"reminder_3d_{user_id}")  # 3 روز
-    context.job_queue.run_once(clear_data, 604800, data=job_data, name=f"clear_data_{user_id}")  # 7 روز
+    # بررسی وجود job_queue قبل از تنظیم یادآوری‌ها
+    if context.job_queue:
+        context.job_queue.run_once(reminder_1hour, 3600, data=job_data, name=f"reminder_1h_{user_id}")  # 1 ساعت
+        context.job_queue.run_once(reminder_1day, 86400, data=job_data, name=f"reminder_1d_{user_id}")  # 1 روز
+        context.job_queue.run_once(reminder_3days, 259200, data=job_data, name=f"reminder_3d_{user_id}")  # 3 روز
+        context.job_queue.run_once(clear_data, 604800, data=job_data, name=f"clear_data_{user_id}")  # 7 روز
+        logger.info(f"Scheduled reminders for user: {user_id}")
+    else:
+        logger.warning("JobQueue is not available. Reminders will not be scheduled.")
 
     await update.message.reply_text(
         f"عالیه. 👏\nانتخابت حرف نداره ✨\nپس انتخابت شد: {context.user_data['product']} {selected_size}"
@@ -357,9 +362,13 @@ async def discount(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     user_id = context.user_data['user_id']
     context.user_data['order_completed'] = True
 
-    for job in context.job_queue.jobs():
-        if job.name in [f"reminder_1h_{user_id}", f"reminder_1d_{user_id}", f"reminder_3d_{user_id}", f"clear_data_{user_id}"]:
-            job.schedule_removal()
+    if context.job_queue:
+        for job in context.job_queue.jobs():
+            if job.name in [f"reminder_1h_{user_id}", f"reminder_1d_{user_id}", f"reminder_3d_{user_id}", f"clear_data_{user_id}"]:
+                job.schedule_removal()
+                logger.info(f"Removed job: {job.name}")
+    else:
+        logger.warning("JobQueue is not available. Cannot remove scheduled jobs.")
 
     if not context.user_data.get('username'):
         context.user_data['current_state'] = CONTACT
@@ -425,9 +434,13 @@ async def contact(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
         user_id = context.user_data['user_id']
         context.user_data['order_completed'] = True
 
-        for job in context.job_queue.jobs():
-            if job.name in [f"reminder_1h_{user_id}", f"reminder_1d_{user_id}", f"reminder_3d_{user_id}", f"clear_data_{user_id}"]:
-                job.schedule_removal()
+        if context.job_queue:
+            for job in context.job_queue.jobs():
+                if job.name in [f"reminder_1h_{user_id}", f"reminder_1d_{user_id}", f"reminder_3d_{user_id}", f"clear_data_{user_id}"]:
+                    job.schedule_removal()
+                    logger.info(f"Removed job: {job.name}")
+        else:
+            logger.warning("JobQueue is not available. Cannot remove scheduled jobs.")
 
         base_price = SIZES[context.user_data['size']]['price']
         discount_amount = 240000 if context.user_data['discount'] in DISCOUNT_CODES else 0
