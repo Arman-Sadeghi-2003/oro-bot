@@ -27,16 +27,24 @@ DISCOUNT_CODES = {
 
 PRODUCTS = {
     "تابلو نخی پرتره (دایره)": {"price": "تومان۲,۱۰۰,۰۰۰ تا ۳,۴۰۰,۰۰۰"},
+    "thumbnail": "https://api.telegram.org/file/bot8086798709:AAETrPfHPj_aVM80QL_uL1LYg8cRMcSoRR0/photos/file_14.jpg"
     "تابلو نخی پرتره (مربع)": {"price": "بزودی"},
+"thumbnail": "https://api.telegram.org/file/bot8086798709:AAETrPfHPj_aVM80QL_uL1LYg8cRMcSoRR0/photos/file_13.jpg"
     "تابلو نخی شبتاب": {"price": "بزودی"},
+"thumbnail": "https://api.telegram.org/file/bot8086798709:AAETrPfHPj_aVM80QL_uL1LYg8cRMcSoRR0/photos/file_13.jpg"
     "تابلو نخی ماندالا": {"price": "بزودی"}
+"thumbnail": "https://api.telegram.org/file/bot8086798709:AAETrPfHPj_aVM80QL_uL1LYg8cRMcSoRR0/photos/file_13.jpg"
 }
 
 SIZES = {
     "70×70": {"price": 2490000},
+    "thumbnail": "https://api.telegram.org/file/bot8086798709:AAETrPfHPj_aVM80QL_uL1LYg8cRMcSoRR0/photos/file_11.jpg"
     "45×45": {"price": "بزودی"},
+"thumbnail": "https://api.telegram.org/file/bot8086798709:AAETrPfHPj_aVM80QL_uL1LYg8cRMcSoRR0/photos/file_13.jpg"
     "60×60": {"price": "بزودی"},
+"thumbnail": "https://api.telegram.org/file/bot8086798709:AAETrPfHPj_aVM80QL_uL1LYg8cRMcSoRR0/photos/file_13.jpg"
     "90×90": {"price": "بزودی"}
+"thumbnail": "https://api.telegram.org/file/bot8086798709:AAETrPfHPj_aVM80QL_uL1LYg8cRMcSoRR0/photos/file_13.jpg"
 }
 
 FAQ = {
