@@ -1,11 +1,14 @@
 import os
 import logging
+import sqlite3
+import threading
+import time
+from datetime import datetime, timedelta
 from telegram import InlineQueryResultArticle, InputTextMessageContent, InlineKeyboardMarkup, InlineKeyboardButton, ReplyKeyboardMarkup, KeyboardButton, ReplyKeyboardRemove, Update
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes, ConversationHandler, CallbackQueryHandler, InlineQueryHandler
 import asyncio
 import telegram.error
 
-# تنظیم لاگ‌گیری
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
@@ -18,18 +21,19 @@ PRODUCT, SIZE, PHOTO, EDIT, DISCOUNT, CONTACT, SUPPORT, FAQ_STATE = range(8)
 OPERATOR_ID = "7695028053"
 
 DISCOUNT_CODES = {
-    "oro1": "علی", "art2": "سارا", "fac3": "محمد", "nxt4": "نگار", "por5": "رضا",
-    "skc6": "مهسا", "drw7": "بهزاد", "pix8": "لیلا", "cus9": "پویا", "orox": "شیما"
+    "oro1": "مهدی", "art2": "مبین", "fac3": "ممد", "nxt4": "مریم", "por5": "نگین",
+    "skc6": "مهشید", "drw7": "آیدا", "pix8": "حسین", "cus9": "پویا", "orox": "عرفان"
 }
 
 PRODUCTS = {
-    "تابلو نخی چهره دلخواه": {"price": "۲,۱۰۰,۰۰۰ تا ۳,۲۰۰,۰۰۰ تومان"},
-    "تابلو نخی کودکانه": {"price": "بزودی"},
-    "تابلو نخی عاشقانه": {"price": "بزودی"}
+    "تابلو نخی پرتره (دایره)": {"price": "تومان۲,۱۰۰,۰۰۰ تا ۳,۴۰۰,۰۰۰"},
+    "تابلو نخی پرتره (مربع)": {"price": "بزودی"},
+    "تابلو نخی شبتاب": {"price": "بزودی"},
+    "تابلو نخی ماندالا": {"price": "بزودی"}
 }
 
 SIZES = {
-    "70×70": {"price": 2450000},
+    "70×70": {"price": ۲,۴۹۰,۰۰۰},
     "45×45": {"price": "بزودی"},
     "60×60": {"price": "بزودی"},
     "90×90": {"price": "بزودی"}
@@ -38,7 +42,7 @@ SIZES = {
 FAQ = {
     "مجموعه oro چیه؟": "یه گروه از جوون های باحال اردبیل که دارن از هنرشون استفاده میکنن. یه تیم خفن که عاشق کارشونه 😎",
     "به شهر منم ارسال میکنین؟": "فعلا فقط تو شهر اردبیلیم! 🏠 ولی داریم نقشه میکشیم و برنامه ریزی میکنیم تا به تمام نقاط ایران ارسال داشته باشیم. قول میدم خیلی زود با خبر میشی ⏰",
-    "تابلو نخی چهره دلخواه چیه؟": "بچه های هنرمند مون چهره ت رو میگیرن و با ظرافت تبدیلش میکنن به یه تابلو نخی جذاب و بی نظیر. یه اثر هنری همراه با خاطره ش فقط برای تو 🎨❤️",
+    "تابلو نخی پرتره (دایره) چیه؟": "بچه های هنرمند مون چهره ت رو میگیرن و با ظرافت تبدیلش میکنن به یه تابلو نخی جذاب و بی نظیر. یه اثر هنری همراه با خاطره ش فقط برای تو 🎨❤️",
     "عکسم باید چه فرمتی باشه؟": "فقط میتونم عکس ساده تلگرام رو قبول کنم. بهتره که نسبت 1:1 باشه و چهره ت کامل بیوفته. اگر فرمت دیگه ای داری، بهتره با پشتیبانمون صحبت کنی 📲",
     "ادیت عکس چجوریه؟": "اگه عکست چیز اضافی داره یا مثلا یه تیکه عکست خراب شده یا هر چیز دیگه ای... فتوشاپ کارای ماهرمون انجام میدن برات. خیالت تخت 🖼️",
     "میتونم مشخصات سفارشم رو عوض کنم؟": "اگه فرآیند ثبت نام کامل شده، با پشتیبانی صحبت کن. وگرنه خیلی ساده رو این دکمه بزن و از اول شروع کن /start 🔄",
@@ -58,13 +62,101 @@ ORDER_KEYBOARD = ReplyKeyboardMarkup(
     resize_keyboard=True
 )
 
+DATABASE_PATH = "reminders.db"
+running = True
+
+def init_db():
+    conn = sqlite3.connect(DATABASE_PATH)
+    c = conn.cursor()
+    c.execute('''CREATE TABLE IF NOT EXISTS reminders
+                 (user_id INTEGER, chat_id INTEGER, reminder_type TEXT, remind_at TEXT)''')
+    conn.commit()
+    conn.close()
+    logger.info("Database initialized successfully")
+
+def add_reminder(user_id, chat_id, reminder_type, remind_at):
+    conn = sqlite3.connect(DATABASE_PATH)
+    c = conn.cursor()
+    c.execute("INSERT INTO reminders (user_id, chat_id, reminder_type, remind_at) VALUES (?, ?, ?, ?)",
+              (user_id, chat_id, reminder_type, remind_at))
+    conn.commit()
+    conn.close()
+    logger.info(f"Added reminder for user_id: {user_id}, type: {reminder_type}, at: {remind_at}")
+
+def remove_reminders(user_id):
+    conn = sqlite3.connect(DATABASE_PATH)
+    c = conn.cursor()
+    c.execute("DELETE FROM reminders WHERE user_id = ?", (user_id,))
+    conn.commit()
+    conn.close()
+    logger.info(f"Removed all reminders for user_id: {user_id}")
+
+def reminder_loop(application):
+    logger.info("Starting reminder loop...")
+    while running:
+        try:
+            conn = sqlite3.connect(DATABASE_PATH)
+            c = conn.cursor()
+            current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            c.execute("SELECT user_id, chat_id, reminder_type FROM reminders WHERE remind_at <= ?", (current_time,))
+            reminders = c.fetchall()
+            
+            for user_id, chat_id, reminder_type in reminders:
+                logger.info(f"Sending reminder for user_id: {user_id}, chat_id: {chat_id}, type: {reminder_type}")
+                try:
+                    if reminder_type == "1hour":
+                        message = (
+                            f"سلام دوست خوبم! 🌟\n"
+                            f"ما هنوز منتظریم تا سفارشت رو کامل کنی.\n"
+                            f"بیا ادامه بدیم و یه تابلو نخی فوق‌العاده برات بسازیم! 🎨\n\n"
+                            f"راستی، یادت رفته عکست رو بفرستی!"
+                        )
+                    elif reminder_type == "1day":
+                        message = (
+                            f"سلام رفیق عزیز! ✨\n"
+                            f"یه روزه که oro منتظرته!\n"
+                            f"اگه تا آخر امروز سفارشت رو تکمیل کنی، ۱۰۰,۰۰۰ تومن تخفیف بیشتر می‌گیرید! 🎁\n"
+                            f"بیا تمومش کنیم! 💪\n\n"
+                            f"راستی، یادت رفته عکست رو بفرستی!"
+                        )
+                    elif reminder_type == "3days":
+                        message = (
+                            f"سلام دوست عزیز! ⚠️\n"
+                            f"موجودی تابلو نخی پرتره (دایره) رو به اتمامه و ممکنه اطلاعات سفارشت پاک بشه!\n"
+                            f"تا دیر نشده، همین امروز سفارشت رو کامل کن تا خیالت راحت بشه. 🖼️\n\n"
+                            f"راستی، یادت رفته عکست رو بفرستی!"
+                        )
+
+                    async def send_message():
+                        await application.bot.send_message(
+                            chat_id=chat_id,
+                            text=message,
+                            reply_markup=InlineKeyboardMarkup([
+                                [InlineKeyboardButton("ادامه سفارش 🚀", callback_data="resume_order")]
+                            ])
+                        )
+                    
+                    asyncio.run_coroutine_threadsafe(send_message(), application.loop)
+                    logger.info(f"Reminder {reminder_type} sent successfully to chat_id: {chat_id}")
+
+                    c.execute("DELETE FROM reminders WHERE user_id = ? AND reminder_type = ?", (user_id, reminder_type))
+                    conn.commit()
+                except Exception as e:
+                    logger.error(f"Error sending reminder to chat_id {chat_id}: {e}")
+            
+            conn.close()
+        except Exception as e:
+            logger.error(f"Error in reminder loop: {e}")
+        
+        time.sleep(60)
+
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     logger.info(f"Received /start command from user: {update.message.from_user.id}")
     context.user_data.clear()
     context.user_data['current_state'] = PRODUCT
     await update.message.reply_text("سلام! 😊 به oro خوش اومدی")
     await update.message.reply_text(
-        "بیا یه نگاهی به محصولاتمون بنداز 👀",
+        "برای دیدن نمونه کارهامون، پیج اینستامون رو حتماً ببین:\n👉 https://instagram.com/example",
         reply_markup=InlineKeyboardMarkup([
             [InlineKeyboardButton("محصولات 🎉", switch_inline_query_current_chat="محصولات")],
             [
@@ -198,17 +290,11 @@ async def handle_size_selection(update: Update, context: ContextTypes.DEFAULT_TY
 
     user_id = context.user_data['user_id']
     chat_id = update.message.chat_id
-    job_data = {'chat_id': chat_id, 'user_id': user_id}
 
-    # بررسی وجود job_queue قبل از تنظیم یادآوری‌ها
-    if context.job_queue:
-        context.job_queue.run_once(reminder_1hour, 3600, data=job_data, name=f"reminder_1h_{user_id}")  # 1 ساعت
-        context.job_queue.run_once(reminder_1day, 86400, data=job_data, name=f"reminder_1d_{user_id}")  # 1 روز
-        context.job_queue.run_once(reminder_3days, 259200, data=job_data, name=f"reminder_3d_{user_id}")  # 3 روز
-        context.job_queue.run_once(clear_data, 604800, data=job_data, name=f"clear_data_{user_id}")  # 7 روز
-        logger.info(f"Scheduled reminders for user: {user_id}")
-    else:
-        logger.warning("JobQueue is not available. Reminders will not be scheduled.")
+    current_time = datetime.now()
+    add_reminder(user_id, chat_id, "1hour", (current_time + timedelta(seconds=60)).strftime("%Y-%m-%d %H:%M:%S"))
+    add_reminder(user_id, chat_id, "1day", (current_time + timedelta(days=1)).strftime("%Y-%m-%d %H:%M:%S"))
+    add_reminder(user_id, chat_id, "3days", (current_time + timedelta(days=3)).strftime("%Y-%m-%d %H:%M:%S"))
 
     await update.message.reply_text(
         f"عالیه. 👏\nانتخابت حرف نداره ✨\nپس انتخابت شد: {context.user_data['product']} {selected_size}"
@@ -361,18 +447,45 @@ async def discount(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
 
     user_id = context.user_data['user_id']
     context.user_data['order_completed'] = True
+    remove_reminders(user_id)
 
-    if context.job_queue:
-        for job in context.job_queue.jobs():
-            if job.name in [f"reminder_1h_{user_id}", f"reminder_1d_{user_id}", f"reminder_3d_{user_id}", f"clear_data_{user_id}"]:
-                job.schedule_removal()
-                logger.info(f"Removed job: {job.name}")
-    else:
-        logger.warning("JobQueue is not available. Cannot remove scheduled jobs.")
+    base_price = SIZES[context.user_data['size']]['price']
+    discount_amount = 240000 if context.user_data['discount'] in DISCOUNT_CODES else 0
+    extra_discount = 100000 if context.user_data.get('extra_discount_eligible', False) else 0
+    final_price = base_price - discount_amount - extra_discount
+    final_price_str = f"{final_price:,} تومان".replace(',', '،')
+
+    summary = (
+        "خلاصه سفارشت:\n"
+        f"- محصول: {context.user_data['product']}\n"
+        f"- ابعاد: {context.user_data['size']}\n"
+        f"- ادیت عکس: {context.user_data['edit']}\n"
+        f"- کد تخفیف: {context.user_data['discount']}{marketer}\n"
+        f"- قیمت نهایی: {final_price_str}\n\n"
+        "آیا مطمئنی که می‌خوای سفارش رو ثبت کنی؟"
+    )
+    await (update.callback_query.message if update.callback_query else update.message).reply_text(
+        summary,
+        reply_markup=InlineKeyboardMarkup([
+            [InlineKeyboardButton("✅ تأیید سفارش", callback_data="confirm_order")]
+        ])
+    )
+    return DISCOUNT
+
+async def confirm_order(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    query = update.callback_query
+    await query.answer()
+    user_id = context.user_data['user_id']
+    marketer = f" (بازاریاب: {DISCOUNT_CODES[context.user_data['discount']]})" if context.user_data['discount'] in DISCOUNT_CODES else ""
+    base_price = SIZES[context.user_data['size']]['price']
+    discount_amount = 240000 if context.user_data['discount'] in DISCOUNT_CODES else 0
+    extra_discount = 100000 if context.user_data.get('extra_discount_eligible', False) else 0
+    final_price = base_price - discount_amount - extra_discount
+    final_price_str = f"{final_price:,} تومان".replace(',', '،')
 
     if not context.user_data.get('username'):
         context.user_data['current_state'] = CONTACT
-        await (update.callback_query.message if update.callback_query else update.message).reply_text(
+        await query.message.reply_text(
             "لطفاً شماره تلفنتون رو به اشتراک بذارید 📞",
             reply_markup=ReplyKeyboardMarkup(
                 [[KeyboardButton("ارسال شماره تلفن 📱", request_contact=True)]],
@@ -382,26 +495,20 @@ async def discount(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
         )
         return CONTACT
 
-    base_price = SIZES[context.user_data['size']]['price']
-    discount_amount = 240000 if context.user_data['discount'] in DISCOUNT_CODES else 0
-    extra_discount = 100000 if context.user_data.get('extra_discount_eligible', False) else 0
-    final_price = base_price - discount_amount - extra_discount
-    final_price_str = f"{final_price:,} تومان".replace(',', '،')
-
     extra_discount_message = " و به‌خاطر تکمیل سریع سفارش، ۱۰۰,۰۰۰ تومن تخفیف بیشتر برات اعمال شد! 🎉" if extra_discount else ""
-    await (update.callback_query.message if update.callback_query else update.message).reply_text(
+    await query.message.reply_text(
         f"سفارشت ثبت شد. 🎉\nمنتظر پیاممون باش. زودی باهات تماس می‌گیریم و هماهنگ می‌شیم! 📞\n"
         f"مرسی که با oro همراه شدی. 🙏{extra_discount_message}",
         reply_markup=InlineKeyboardMarkup([
-            [InlineKeyboardButton("محصولات 🎉", switch_inline_query_current_chat="محصولات")],
+            [InlineKeyboardButton("📦 ثبت سفارش دیگر", switch_inline_query_current_chat="محصولات")],
             [
-                InlineKeyboardButton("❓ سوالات پرتکرار", switch_inline_query_current_chat="سوالات"),
-                InlineKeyboardButton("💬 ارتباط با پشتیبانی", callback_data="support")
+                InlineKeyboardButton("💬 ارتباط با پشتیبانی", callback_data="support"),
+                InlineKeyboardButton("❓ سوالات پرتکرار", switch_inline_query_current_chat="سوالات")
             ]
         ])
     )
 
-    await (update.callback_query.message if update.callback_query else update.message).reply_text(
+    await query.message.reply_text(
         "راستی اینم پیج اینستامونه. به دوستات هم معرفی کن 📷\nhttps://instagram.com/example"
     )
 
@@ -433,14 +540,7 @@ async def contact(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
 
         user_id = context.user_data['user_id']
         context.user_data['order_completed'] = True
-
-        if context.job_queue:
-            for job in context.job_queue.jobs():
-                if job.name in [f"reminder_1h_{user_id}", f"reminder_1d_{user_id}", f"reminder_3d_{user_id}", f"clear_data_{user_id}"]:
-                    job.schedule_removal()
-                    logger.info(f"Removed job: {job.name}")
-        else:
-            logger.warning("JobQueue is not available. Cannot remove scheduled jobs.")
+        remove_reminders(user_id)
 
         base_price = SIZES[context.user_data['size']]['price']
         discount_amount = 240000 if context.user_data['discount'] in DISCOUNT_CODES else 0
@@ -457,10 +557,10 @@ async def contact(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
             f"سفارشت ثبت شد. 🎉\nمنتظر پیاممون باش. زودی باهات تماس می‌گیریم و هماهنگ می‌شیم! 📞\n"
             f"مرسی که با oro همراه شدی. 🙏",
             reply_markup=InlineKeyboardMarkup([
-                [InlineKeyboardButton("محصولات 🎉", switch_inline_query_current_chat="محصولات")],
+                [InlineKeyboardButton("📦 ثبت سفارش دیگر", switch_inline_query_current_chat="محصولات")],
                 [
-                    InlineKeyboardButton("❓ سوالات پرتکرار", switch_inline_query_current_chat="سوالات"),
-                    InlineKeyboardButton("💬 ارتباط با پشتیبانی", callback_data="support")
+                    InlineKeyboardButton("💬 ارتباط با پشتیبانی", callback_data="support"),
+                    InlineKeyboardButton("❓ سوالات پرتکرار", switch_inline_query_current_chat="سوالات")
                 ]
             ])
         )
@@ -500,169 +600,105 @@ async def contact(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
         )
         return CONTACT
 
-async def about_us(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    query = update.callback_query
-    await query.answer()
-    await query.message.reply_text(
-        "ما مجموعه oro هستیم! 🎨\n"
-        "یه تیم جوون و خلاق از اردبیل که عاشق خلق آثار هنری خاص مثل تابلوهای نخی هستیم. "
-        "هدفمون اینه که با هنر، خاطرات شما رو ماندگار کنیم. همراهمون باشین! 😎",
-        reply_markup=MAIN_KEYBOARD
+async def restart(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    logger.info(f"User {update.message.from_user.id} restarted the order process")
+    user_id = context.user_data.get('user_id')
+    if user_id:
+        remove_reminders(user_id)
+    context.user_data.clear()
+    await update.message.reply_text("بیا دوباره شروع کنیم! 😊")
+    await update.message.reply_text(
+        "برای دیدن نمونه کارهامون، پیج اینستامون رو حتماً ببین:\n👉 https://instagram.com/example",
+        reply_markup=InlineKeyboardMarkup([
+            [InlineKeyboardButton("محصولات 🎉", switch_inline_query_current_chat="محصولات")],
+            [
+                InlineKeyboardButton("❓ سوالات پرتکرار", switch_inline_query_current_chat="سوالات"),
+                InlineKeyboardButton("💬 ارتباط با پشتیبانی", callback_data="support")
+            ],
+            [
+                InlineKeyboardButton("📖 درباره ما", callback_data="about_us"),
+                InlineKeyboardButton("📷 اینستاگرام", url="https://instagram.com/example")
+            ]
+        ])
     )
     return PRODUCT
 
 async def support(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    logger.info("Entering support state...")
+    logger.info(f"User {update.effective_user.id} requested support")
     if update.callback_query:
-        query = update.callback_query
-        logger.info(f"Support called via callback query with data: {query.data}")
-        await query.answer()
+        await update.callback_query.answer()
+        await update.callback_query.message.reply_text(
+            "به پشتیبانی خوش اومدی! 😊\n"
+            "اگه سؤالی داری یا به مشکلی خوردی، همینجا برامون بنویس.\n"
+            "یا اگه می‌خوای با اپراتور صحبت کنی، دکمه زیر رو بزن:",
+            reply_markup=InlineKeyboardMarkup([
+                [InlineKeyboardButton("📞 صحبت با اپراتور", callback_data="send_to_operator")]
+            ])
+        )
     else:
-        logger.info("Support called via keyboard button")
-    context.user_data['support_message'] = ""
-    await (update.callback_query.message if update.callback_query else update.message).reply_text(
-        "سلام رفیق! 😊 مشکلی داری؟ سوالی داری؟ هر چی هست برامون بنویس! 📩\nپشتیبانای خفنمون زودی جوابت رو می‌دن! 💪",
-        reply_markup=MAIN_KEYBOARD
-    )
+        await update.message.reply_text(
+            "به پشتیبانی خوش اومدی! 😊\n"
+            "اگه سؤالی داری یا به مشکلی خوردی، همینجا برامون بنویس.\n"
+            "یا اگه می‌خوای با اپراتور صحبت کنی، دکمه زیر رو بزن:",
+            reply_markup=InlineKeyboardMarkup([
+                [InlineKeyboardButton("📞 صحبت با اپراتور", callback_data="send_to_operator")]
+            ])
+        )
     return SUPPORT
 
 async def handle_support(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    logger.info("Handling support message...")
+    logger.info(f"Handling support message from user: {update.effective_user.id}")
     if update.callback_query:
         query = update.callback_query
-        logger.info(f"Callback query received with data: {query.data}")
         await query.answer()
         if query.data == "send_to_operator":
-            logger.info("Sending message to operator...")
-            username = query.from_user.username
-            user_id = query.from_user.id
-            contact_info = f"آیدی: @{username}" if username else f"لینک چت: https://t.me/+{user_id}"
-            message_to_operator = (
-                "پیام پشتیبانی جدید:\n"
-                f"- {contact_info}\n"
-                f"- متن: {context.user_data['support_message']}"
-            )
-            await context.bot.send_message(chat_id=OPERATOR_ID, text=message_to_operator)
             await query.message.reply_text(
-                "پیامت رسید رفیق! 🙌 زودی باهات تماس می‌کنیم. دمت گرم که صبور هستی! 😎",
-                reply_markup=MAIN_KEYBOARD
+                "در حال انتقال به اپراتور... ⏳\nلطفاً منتظر بمون، زودی باهات تماس می‌گیرن! 📞"
             )
-            context.user_data.clear()
+            try:
+                await context.bot.send_message(
+                    chat_id=OPERATOR_ID,
+                    text=f"کاربر @{update.effective_user.username} درخواست پشتیبانی داره.\nلطفاً باهاش تماس بگیر!"
+                )
+            except Exception as e:
+                logger.error(f"Error sending to operator: {e}")
+                await query.message.reply_text("متأسفم، خطایی پیش اومد. لطفاً دوباره امتحان کن! 😔")
             return ConversationHandler.END
     else:
-        logger.info(f"Support message received: {update.message.text}")
-
-    new_message = update.message.text
-    if context.user_data['support_message']:
-        context.user_data['support_message'] += f"\n{new_message}"
-    else:
-        context.user_data['support_message'] = new_message
-
-    await update.message.reply_text(
-        f"مشکلی که نوشتی:\n{context.user_data['support_message']}",
-        reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("ارسال به اپراتور", callback_data="send_to_operator")]])
-    )
-    return SUPPORT
-
-async def faq(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    logger.info("Entering FAQ state...")
-    await update.message.reply_text(
-        "سوالتو انتخاب کن:",
-        reply_markup=InlineKeyboardMarkup([
-            [InlineKeyboardButton("سوالات ❓", switch_inline_query_current_chat="سوالات")]
-        ])
-    )
-    return FAQ_STATE
+        user_message = update.message.text
+        await update.message.reply_text(
+            "پیامت رو برای اپراتور فرستادم! 📤\nزودی باهات تماس می‌گیرن. 📞"
+        )
+        try:
+            await context.bot.send_message(
+                chat_id=OPERATOR_ID,
+                text=f"پیام از @{update.message.from_user.username}:\n{user_message}"
+            )
+        except Exception as e:
+            logger.error(f"Error sending to operator: {e}")
+            await update.message.reply_text("متأسفم، خطایی پیش اومد. لطفاً دوباره امتحان کن! 😔")
+        return ConversationHandler.END
 
 async def handle_faq_selection(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     logger.info(f"Handling FAQ selection: {update.message.text}")
     message_text = update.message.text
-    if message_text not in FAQ:
-        await update.message.reply_text("لطفاً یه سوال درست انتخاب کن رفیق! 😜")
-        return FAQ_STATE
-
-    await update.message.reply_text(FAQ[message_text])
-    return ConversationHandler.END
-
-async def faq_during_order(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    logger.info("FAQ during order state...")
-    await update.message.reply_text(
-        "لطفاً مراحل ثبت سفارش رو کامل کن یا 'شروع دوباره' رو بزن! 😊",
-        reply_markup=ORDER_KEYBOARD
-    )
-    return None
-
-async def restart(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    logger.info("Restarting conversation...")
-    return await start(update, context)
-
-def get_state_message(state):
-    if state == PRODUCT:
-        return "یادت رفته تابلوی خودت رو انتخاب کنی"
-    elif state == SIZE:
-        return "یادت رفته سایز تابلو رو انتخاب کنی"
-    elif state == PHOTO:
-        return "یادت رفته عکست رو بفرستی"
-    elif state == EDIT:
-        return "یادت رفته بگی عکست نیاز به ادیت داره یا نه"
-    elif state == DISCOUNT:
-        return "یادت رفته کد تخفیف وارد کنی یا بگی که نداری"
-    elif state == CONTACT:
-        return "یادت رفته شماره تلفنت رو بفرستی"
+    if message_text in FAQ:
+        await update.message.reply_text(FAQ[message_text])
     else:
-        return "به نظر می‌رسه تو یه مرحله‌ی نامشخصی هستی، بیا از اول شروع کنیم"
+        await update.message.reply_text("لطفاً یه سؤال از منو انتخاب کن! 😊")
+    return FAQ_STATE
 
-async def reminder_1hour(context: ContextTypes.DEFAULT_TYPE):
-    logger.info("Sending 1-hour reminder...")
-    job_data = context.job.data
-    current_state = context.user_data.get('current_state', PRODUCT)
-    state_message = get_state_message(current_state)
-    await context.bot.send_message(
-        chat_id=job_data['chat_id'],
-        text=(
-            f"سلام دوست خوبم! 🌟\n"
-            f"ما هنوز منتظریم تا سفارشت رو کامل کنی.\n"
-            f"بیا ادامه بدیم و یه تابلو نخی فوق‌العاده برات بسازیم! 🎨\n\n"
-            f"راستی، {state_message}!"
-        )
+async def about_us(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    logger.info(f"User {update.effective_user.id} requested about us")
+    await update.callback_query.answer()
+    await update.callback_query.message.reply_text(
+        "ما یه تیم جوون و پرانرژی از اردبیل هستیم که عاشق هنر و خلاقیتیم! 🎨\n"
+        "با تابلوهای نخی دست‌سازمون، خاطراتت رو به یه اثر هنری تبدیل می‌کنیم. 🖼️\n"
+        "هر تابلو با عشق و ظرافت ساخته می‌شه تا تو و عزیزانت رو خوشحال کنه! ❤️",
+        reply_markup=InlineKeyboardMarkup([
+            [InlineKeyboardButton("📷 اینستاگرام", url="https://instagram.com/example")]
+        ])
     )
-
-async def reminder_1day(context: ContextTypes.DEFAULT_TYPE):
-    logger.info("Sending 1-day reminder...")
-    job_data = context.job.data
-    context.user_data['extra_discount_eligible'] = True
-    current_state = context.user_data.get('current_state', PRODUCT)
-    state_message = get_state_message(current_state)
-    await context.bot.send_message(
-        chat_id=job_data['chat_id'],
-        text=(
-            f"سلام رفیق عزیز! ✨\n"
-            f"یه روزه که oro منتظرته!\n"
-            f"اگه تا آخر امروز سفارشت رو تکمیل کنی، ۱۰۰,۰۰۰ تومن تخفیف بیشتر می‌گیرید! 🎁\n"
-            f"بیا تمومش کنیم! 💪\n\n"
-            f"راستی، {state_message}!"
-        )
-    )
-
-async def reminder_3days(context: ContextTypes.DEFAULT_TYPE):
-    logger.info("Sending 3-days reminder...")
-    job_data = context.job.data
-    product = context.user_data.get('product', 'محصول انتخابی')
-    current_state = context.user_data.get('current_state', PRODUCT)
-    state_message = get_state_message(current_state)
-    await context.bot.send_message(
-        chat_id=job_data['chat_id'],
-        text=(
-            f"سلام دوست عزیز! ⚠️\n"
-            f"موجودی {product} رو به اتمامه و ممکنه اطلاعات سفارشت پاک بشه!\n"
-            f"تا دیر نشده، همین امروز سفارشت رو کامل کن تا خیالت راحت بشه. 🖼️\n\n"
-            f"راستی، {state_message}!"
-        )
-    )
-
-async def clear_data(context: ContextTypes.DEFAULT_TYPE):
-    logger.info("Clearing user data after 7 days...")
-    context.user_data.clear()
 
 async def error_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     logger.error(f"Error occurred: {context.error}")
@@ -672,11 +708,17 @@ async def error_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     else:
         logger.error(f"Unhandled error: {context.error}")
         with open("error_log.txt", "a") as f:
-            f.write(f"{context.error}\n")
+            f.write(f"{datetime.now()} - {context.error}\n")
 
 def main():
     logger.info("Building Telegram application...")
     application = Application.builder().token(BOT_TOKEN).build()
+
+    init_db()
+
+    reminder_thread = threading.Thread(target=reminder_loop, args=(application,), daemon=True)
+    reminder_thread.start()
+    logger.info("Reminder thread started")
 
     conv_handler = ConversationHandler(
         entry_points=[
@@ -718,6 +760,7 @@ def main():
                 CallbackQueryHandler(support, pattern="^support$"),
                 CallbackQueryHandler(about_us, pattern="^about_us$"),
                 CallbackQueryHandler(discount, pattern="^no_discount$"),
+                CallbackQueryHandler(confirm_order, pattern="^confirm_order$"),
                 MessageHandler(filters.Text() & ~filters.Command(), discount)
             ],
             CONTACT: [
@@ -751,9 +794,12 @@ def main():
     application.add_error_handler(error_handler)
 
     logger.info("Bot is running...")
-    application.run_polling()
+    try:
+        application.run_polling()
+    finally:
+        global running
+        running = False
     logger.info("Polling started successfully!")
 
 if __name__ == '__main__':
-    logger.info("Starting main function...")
     main()
