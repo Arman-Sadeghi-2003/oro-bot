@@ -21,18 +21,19 @@ PRODUCT, SIZE, PHOTO, EDIT, DISCOUNT, CONTACT, SUPPORT, FAQ_STATE = range(8)
 OPERATOR_ID = "7695028053"
 
 DISCOUNT_CODES = {
-    "oro1": "علی", "art2": "سارا", "fac3": "محمد", "nxt4": "نگار", "por5": "رضا",
-    "skc6": "مهسا", "drw7": "بهزاد", "pix8": "لیلا", "cus9": "پویا", "orox": "شیما"
+    "oro1": "مهدی", "art2": "مبین", "fac3": "محمد", "nxt4": "مریم", "por5": "نگین",
+    "skc6": "مهشید", "drw7": "آیدا", "pix8": "حسین", "cus9": "پویا", "orox": "عرفان"
 }
 
 PRODUCTS = {
-    "تابلو نخی چهره دلخواه": {"price": "۲,۱۰۰,۰۰۰ تا ۳,۲۰۰,۰۰۰ تومان"},
-    "تابلو نخی کودکانه": {"price": "بزودی"},
-    "تابلو نخی عاشقانه": {"price": "بزودی"}
+    "تابلو نخی پرتره (دایره)": {"price": "تومان۲,۱۰۰,۰۰۰ تا ۳,۴۰۰,۰۰۰"},
+    "تابلو نخی پرتره (مربع)": {"price": "بزودی"},
+    "تابلو نخی شبتاب": {"price": "بزودی"},
+    "تابلو نخی ماندالا": {"price": "بزودی"}
 }
 
 SIZES = {
-    "70×70": {"price": 2450000},
+    "70×70": {"price": ۲,۴۹۰,۰۰۰},
     "45×45": {"price": "بزودی"},
     "60×60": {"price": "بزودی"},
     "90×90": {"price": "بزودی"}
@@ -41,7 +42,7 @@ SIZES = {
 FAQ = {
     "مجموعه oro چیه؟": "یه گروه از جوون های باحال اردبیل که دارن از هنرشون استفاده میکنن. یه تیم خفن که عاشق کارشونه 😎",
     "به شهر منم ارسال میکنین؟": "فعلا فقط تو شهر اردبیلیم! 🏠 ولی داریم نقشه میکشیم و برنامه ریزی میکنیم تا به تمام نقاط ایران ارسال داشته باشیم. قول میدم خیلی زود با خبر میشی ⏰",
-    "تابلو نخی چهره دلخواه چیه؟": "بچه های هنرمند مون چهره ت رو میگیرن و با ظرافت تبدیلش میکنن به یه تابلو نخی جذاب و بی نظیر. یه اثر هنری همراه با خاطره ش فقط برای تو 🎨❤️",
+    "تابلو نخی پرتره (دایره) چیه؟": "بچه های هنرمند مون چهره ت رو میگیرن و با ظرافت تبدیلش میکنن به یه تابلو نخی جذاب و بی نظیر. یه اثر هنری همراه با خاطره ش فقط برای تو 🎨❤️",
     "عکسم باید چه فرمتی باشه؟": "فقط میتونم عکس ساده تلگرام رو قبول کنم. بهتره که نسبت 1:1 باشه و چهره ت کامل بیوفته. اگر فرمت دیگه ای داری، بهتره با پشتیبانمون صحبت کنی 📲",
     "ادیت عکس چجوریه؟": "اگه عکست چیز اضافی داره یا مثلا یه تیکه عکست خراب شده یا هر چیز دیگه ای... فتوشاپ کارای ماهرمون انجام میدن برات. خیالت تخت 🖼️",
     "میتونم مشخصات سفارشم رو عوض کنم؟": "اگه فرآیند ثبت نام کامل شده، با پشتیبانی صحبت کن. وگرنه خیلی ساده رو این دکمه بزن و از اول شروع کن /start 🔄",
@@ -56,7 +57,7 @@ MAIN_KEYBOARD = ReplyKeyboardMarkup(
 )
 
 ORDER_KEYBOARD = ReplyKeyboardMarkup(
-    [["🎨 شروع دوباره", "💬 ارتباط با پشتیبانی"], ["❌ لغو سفارش"]],
+    [["🎨 شروع دوباره", "💬 ارتباط با پشتیبانی"]],
     one_time_keyboard=False,
     resize_keyboard=True
 )
@@ -121,7 +122,7 @@ def reminder_loop(application):
                     elif reminder_type == "3days":
                         message = (
                             f"سلام دوست عزیز! ⚠️\n"
-                            f"موجودی تابلو نخی چهره دلخواه رو به اتمامه و ممکنه اطلاعات سفارشت پاک بشه!\n"
+                            f"موجودی تابلو نخی پرتره (دایره) رو به اتمامه و ممکنه اطلاعات سفارشت پاک بشه!\n"
                             f"تا دیر نشده، همین امروز سفارشت رو کامل کن تا خیالت راحت بشه. 🖼️\n\n"
                             f"راستی، یادت رفته عکست رو بفرستی!"
                         )
@@ -155,7 +156,6 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     context.user_data['current_state'] = PRODUCT
     await update.message.reply_text("سلام! 😊 به oro خوش اومدی")
     await update.message.reply_text(
-        "ما تابلوهای نخی دست‌ساز می‌سازیم که روی بیس چوبی با 200 میخ ساخته می‌شن! 🎨\n"
         "برای دیدن نمونه کارهامون، پیج اینستامون رو حتماً ببین:\n👉 https://instagram.com/example",
         reply_markup=InlineKeyboardMarkup([
             [InlineKeyboardButton("محصولات 🎉", switch_inline_query_current_chat="محصولات")],
@@ -292,7 +292,7 @@ async def handle_size_selection(update: Update, context: ContextTypes.DEFAULT_TY
     chat_id = update.message.chat_id
 
     current_time = datetime.now()
-    add_reminder(user_id, chat_id, "1hour", (current_time + timedelta(seconds=60)).strftime("%Y-%m-%d %H:%M:%S"))  # 1 دقیقه برای تست
+    add_reminder(user_id, chat_id, "1hour", (current_time + timedelta(seconds=60)).strftime("%Y-%m-%d %H:%M:%S"))
     add_reminder(user_id, chat_id, "1day", (current_time + timedelta(days=1)).strftime("%Y-%m-%d %H:%M:%S"))
     add_reminder(user_id, chat_id, "3days", (current_time + timedelta(days=3)).strftime("%Y-%m-%d %H:%M:%S"))
 
@@ -467,8 +467,7 @@ async def discount(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     await (update.callback_query.message if update.callback_query else update.message).reply_text(
         summary,
         reply_markup=InlineKeyboardMarkup([
-            [InlineKeyboardButton("✅ تأیید سفارش", callback_data="confirm_order")],
-            [InlineKeyboardButton("❌ لغو سفارش", callback_data="cancel_order")]
+            [InlineKeyboardButton("✅ تأیید سفارش", callback_data="confirm_order")]
         ])
     )
     return DISCOUNT
@@ -601,23 +600,6 @@ async def contact(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
         )
         return CONTACT
 
-async def cancel_order(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    logger.info(f"User {update.message.from_user.id} cancelled their order")
-    user_id = context.user_data['user_id']
-    remove_reminders(user_id)
-    context.user_data.clear()
-    await update.message.reply_text("سفارشت لغو شد. 😔 هر وقت خواستی دوباره شروع کن! /start")
-    return ConversationHandler.END
-
-async def cancel_order_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    query = update.callback_query
-    await query.answer()
-    user_id = context.user_data['user_id']
-    remove_reminders(user_id)
-    context.user_data.clear()
-    await query.message.reply_text("سفارشت لغو شد. 😔 هر وقت خواستی دوباره شروع کن! /start")
-    return ConversationHandler.END
-
 async def restart(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     logger.info(f"User {update.message.from_user.id} restarted the order process")
     user_id = context.user_data.get('user_id')
@@ -626,7 +608,6 @@ async def restart(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     context.user_data.clear()
     await update.message.reply_text("بیا دوباره شروع کنیم! 😊")
     await update.message.reply_text(
-        "ما تابلوهای نخی دست‌ساز می‌سازیم که روی بیس چوبی با 200 میخ ساخته می‌شن! 🎨\n"
         "برای دیدن نمونه کارهامون، پیج اینستامون رو حتماً ببین:\n👉 https://instagram.com/example",
         reply_markup=InlineKeyboardMarkup([
             [InlineKeyboardButton("محصولات 🎉", switch_inline_query_current_chat="محصولات")],
@@ -750,21 +731,18 @@ def main():
         ],
         states={
             PRODUCT: [
-                MessageHandler(filters.Regex('^❌ لغو سفارش$'), cancel_order),
                 MessageHandler(filters.Regex('^💬 ارتباط با پشتیبانی$'), support),
                 CallbackQueryHandler(support, pattern="^support$"),
                 CallbackQueryHandler(about_us, pattern="^about_us$"),
                 MessageHandler(filters.Text() & ~filters.Command(), handle_product_selection)
             ],
             SIZE: [
-                MessageHandler(filters.Regex('^❌ لغو سفارش$'), cancel_order),
                 MessageHandler(filters.Regex('^💬 ارتباط با پشتیبانی$'), support),
                 CallbackQueryHandler(support, pattern="^support$"),
                 CallbackQueryHandler(about_us, pattern="^about_us$"),
                 MessageHandler(filters.Text() & ~filters.Command(), handle_size_selection)
             ],
             PHOTO: [
-                MessageHandler(filters.Regex('^❌ لغو سفارش$'), cancel_order),
                 MessageHandler(filters.Regex('^💬 ارتباط با پشتیبانی$'), support),
                 CallbackQueryHandler(support, pattern="^support$"),
                 CallbackQueryHandler(about_us, pattern="^about_us$"),
@@ -772,24 +750,20 @@ def main():
                 MessageHandler(filters.ALL & ~filters.Command(), photo)
             ],
             EDIT: [
-                MessageHandler(filters.Regex('^❌ لغو سفارش$'), cancel_order),
                 MessageHandler(filters.Regex('^💬 ارتباط با پشتیبانی$'), support),
                 CallbackQueryHandler(support, pattern="^support$"),
                 CallbackQueryHandler(about_us, pattern="^about_us$"),
                 MessageHandler(filters.Regex('^(بله|خیر)$'), edit)
             ],
             DISCOUNT: [
-                MessageHandler(filters.Regex('^❌ لغو سفارش$'), cancel_order),
                 MessageHandler(filters.Regex('^💬 ارتباط با پشتیبانی$'), support),
                 CallbackQueryHandler(support, pattern="^support$"),
                 CallbackQueryHandler(about_us, pattern="^about_us$"),
                 CallbackQueryHandler(discount, pattern="^no_discount$"),
                 CallbackQueryHandler(confirm_order, pattern="^confirm_order$"),
-                CallbackQueryHandler(cancel_order_callback, pattern="^cancel_order$"),
                 MessageHandler(filters.Text() & ~filters.Command(), discount)
             ],
             CONTACT: [
-                MessageHandler(filters.Regex('^❌ لغو سفارش$'), cancel_order),
                 MessageHandler(filters.CONTACT, contact),
                 MessageHandler(filters.ALL & ~filters.Command(), contact),
                 CallbackQueryHandler(about_us, pattern="^about_us$"),
@@ -800,7 +774,6 @@ def main():
                 CallbackQueryHandler(about_us, pattern="^about_us$"),
             ],
             FAQ_STATE: [
-                MessageHandler(filters.Regex('^❌ لغو سفارش$'), cancel_order),
                 MessageHandler(filters.Regex('^💬 ارتباط با پشتیبانی$'), support),
                 MessageHandler(filters.Text() & ~filters.Command(), handle_faq_selection),
                 CallbackQueryHandler(about_us, pattern="^about_us$"),
