@@ -21,7 +21,7 @@ PRODUCT, SIZE, PHOTO, EDIT, DISCOUNT, CONTACT, SUPPORT, FAQ_STATE = range(8)
 OPERATOR_ID = "7695028053"
 
 DISCOUNT_CODES = {
-    "oro1": "مهدی", "art2": "مبین", "fac3": "ممد", "nxt4": "مریم", "por5": "نگین",
+    "oro1": "مهدی", "art2": "مبین", "fac3": "محمد", "nxt4": "مریم", "por5": "نگین",
     "skc6": "مهشید", "drw7": "آیدا", "pix8": "حسین", "cus9": "پویا", "orox": "عرفان"
 }
 
