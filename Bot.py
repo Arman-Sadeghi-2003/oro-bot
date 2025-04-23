@@ -191,7 +191,10 @@ async def inlinequery(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
                     id=product,
                     title=product,
                     description=f"💰 رنج قیمت: {info['price']}",
-                    input_message_content=InputTextMessageContent(f"{product}")
+                    input_message_content=InputTextMessageContent(f"{product}"),
+                    thumb_url=info['thumbnail'],
+                    thumb_width=150,
+                    thumb_height=150
                 )
             )
     elif query == "سایز":
@@ -203,7 +206,10 @@ async def inlinequery(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
                     id=size,
                     title=size,
                     description=f"💰 قیمت: {price_display}",
-                    input_message_content=InputTextMessageContent(f"{size}")
+                    input_message_content=InputTextMessageContent(f"{size}"),
+                    thumb_url=info['thumbnail'],  # اضافه کردن تصویر برای سایزها
+                    thumb_width=150,
+                    thumb_height=150
                 )
             )
     elif query in ["سوالات", "سوال"]:
