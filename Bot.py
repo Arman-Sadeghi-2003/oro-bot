@@ -156,8 +156,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     context.user_data['current_state'] = PRODUCT
     await update.message.reply_text("سلام! 😊 به oro خوش اومدی")
     await update.message.reply_text(
-        "بیا نگاهی به محصولاتمون بنداز🌟 /n
-        برای دیدن نمونه کارهامون، به پیج اینستامون سر بزن",
+        "بیا نگاهی به محصولاتمون بنداز🌟 /nبرای دیدن نمونه کارهامون، به پیج اینستامون سر بزن",
         reply_markup=InlineKeyboardMarkup([
             [InlineKeyboardButton("محصولات 🎉", switch_inline_query_current_chat="محصولات")],
             [
