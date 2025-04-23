@@ -156,7 +156,8 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     context.user_data['current_state'] = PRODUCT
     await update.message.reply_text("سلام! 😊 به oro خوش اومدی")
     await update.message.reply_text(
-        "برای دیدن نمونه کارهامون، پیج اینستامون رو حتماً ببین:\n👉 https://instagram.com/example",
+        "بیا نگاهی به محصولاتمون بنداز🌟 /n
+        برای دیدن نمونه کارهامون، به پیج اینستامون سر بزن",
         reply_markup=InlineKeyboardMarkup([
             [InlineKeyboardButton("محصولات 🎉", switch_inline_query_current_chat="محصولات")],
             [
@@ -165,7 +166,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
             ],
             [
                 InlineKeyboardButton("📖 درباره ما", callback_data="about_us"),
-                InlineKeyboardButton("📷 اینستاگرام", url="https://instagram.com/example")
+                InlineKeyboardButton("📷 اینستاگرام", url="https://instagram.com/oro.stringart")
             ]
         ])
     )
@@ -509,7 +510,7 @@ async def confirm_order(update: Update, context: ContextTypes.DEFAULT_TYPE) -> i
     )
 
     await query.message.reply_text(
-        "راستی اینم پیج اینستامونه. به دوستات هم معرفی کن 📷\nhttps://instagram.com/example"
+        "راستی اینم پیج اینستامونه. به دوستات هم معرفی کن 📷\nhttps://instagram.com/oro.stringart"
     )
 
     extra_discount_operator = " (تخفیف بیشتر ۱۰۰,۰۰۰ تومانی اعمال شد)" if extra_discount else ""
@@ -566,7 +567,7 @@ async def contact(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
         )
 
         await update.message.reply_text(
-            "راستی اینم پیج اینستامونه. به دوستات هم معرفی کن 📷\nhttps://instagram.com/example"
+            "راستی اینم پیج اینستامونه. به دوستات هم معرفی کن 📷\nhttps://instagram.com//oro.stringart"
         )
 
         extra_discount_operator = " (تخفیف بیشتر ۱۰۰,۰۰۰ تومانی اعمال شد)" if extra_discount else ""
@@ -608,7 +609,7 @@ async def restart(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     context.user_data.clear()
     await update.message.reply_text("بیا دوباره شروع کنیم! 😊")
     await update.message.reply_text(
-        "برای دیدن نمونه کارهامون، پیج اینستامون رو حتماً ببین:\n👉 https://instagram.com/example",
+        "برای دیدن نمونه کارهامون، پیج اینستامون رو حتماً ببین:\n 👇یک محصول انتخاب کن",
         reply_markup=InlineKeyboardMarkup([
             [InlineKeyboardButton("محصولات 🎉", switch_inline_query_current_chat="محصولات")],
             [
@@ -617,7 +618,7 @@ async def restart(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
             ],
             [
                 InlineKeyboardButton("📖 درباره ما", callback_data="about_us"),
-                InlineKeyboardButton("📷 اینستاگرام", url="https://instagram.com/example")
+                InlineKeyboardButton("📷 اینستاگرام", url="https://instagram.com/oro.stringart")
             ]
         ])
     )
@@ -696,7 +697,7 @@ async def about_us(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         "با تابلوهای نخی دست‌سازمون، خاطراتت رو به یه اثر هنری تبدیل می‌کنیم. 🖼️\n"
         "هر تابلو با عشق و ظرافت ساخته می‌شه تا تو و عزیزانت رو خوشحال کنه! ❤️",
         reply_markup=InlineKeyboardMarkup([
-            [InlineKeyboardButton("📷 اینستاگرام", url="https://instagram.com/example")]
+            [InlineKeyboardButton("📷 اینستاگرام", url="https://instagram.com/oro.stringart")]
         ])
     )
 
