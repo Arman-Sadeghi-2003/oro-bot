@@ -171,6 +171,13 @@ def reminder_loop(application):
                             f"تا دیر نشده، همین امروز سفارشت رو کامل کن تا خیالت راحت بشه. 🖼️\n\n"
                             f"راستی، یادت رفته عکست رو بفرستی!"
                         )
+                    elif reminder_type == "5days":
+                        # حذف اطلاعات سفارش
+                        remove_reminders(user_id)
+                        logger.info(f"Order data cleared for user_id: {user_id} after 5 days")
+                        c.execute("DELETE FROM reminders WHERE user_id = ? AND reminder_type = ?", (user_id, reminder_type))
+                        conn.commit()
+                        continue  # پیام ارسال نمی‌کنیم، فقط اطلاعات پاک می‌شه
 
                     async def send_message(context: ContextTypes.DEFAULT_TYPE):
                         try:
@@ -356,6 +363,7 @@ async def handle_size_selection(update: Update, context: ContextTypes.DEFAULT_TY
     add_reminder(user_id, chat_id, "1hour", (current_time + timedelta(hours=1)).strftime("%Y-%m-%d %H:%M:%S"))
     add_reminder(user_id, chat_id, "1day", (current_time + timedelta(days=1)).strftime("%Y-%m-%d %H:%M:%S"))
     add_reminder(user_id, chat_id, "3days", (current_time + timedelta(days=3)).strftime("%Y-%m-%d %H:%M:%S"))
+    add_reminder(user_id, chat_id, "5days", (current_time + timedelta(days=5)).strftime("%Y-%m-%d %H:%M:%S"))
     logger.info(f"Reminders added for user_id: {user_id}, chat_id: {chat_id}")
 
     await update.message.reply_text(
