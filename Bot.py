@@ -41,18 +41,22 @@ PRODUCTS = {
 }
 
 SIZES = {
-    "70×70": {"price": 2490000,
-    "thumbnail": "https://i.imgur.com/BcNC2lo.jpeg"
+    "70×70": {
+        "price": 2490000,
+        "thumbnail": "https://i.imgur.com/BcNC2lo.jpeg"  # اصلاح‌شده
     },
-    "45×45": {"price": "بزودی",
-"thumbnail": "https://i.imgur.com/1paKwCQ.png"
-},
-    "60×60": {"price": "بزودی",
-"thumbnail": "https://i.imgur.com/1paKwCQ.png"
-},
-    "90×90": {"price": "بزودی",
-"thumbnail": "https://i.imgur.com/1paKwCQ.png"
-}
+    "45×45": {
+        "price": "بزودی",
+        "thumbnail": "https://i.imgur.com/1paKwCQ.png"
+    },
+    "60×60": {
+        "price": "بزودی",
+        "thumbnail": "https://i.imgur.com/1paKwCQ.png"
+    },
+    "90×90": {
+        "price": "بزودی",
+        "thumbnail": "https://i.imgur.com/1paKwCQ.png"
+    }
 }
 
 FAQ = {
@@ -89,6 +93,7 @@ FAQ = {
         "thumbnail": "https://i.imgur.com/OqrFosV.jpeg"
     }
 }
+
 MAIN_KEYBOARD = ReplyKeyboardMarkup(
     [["🎨 شروع دوباره", "💬 ارتباط با پشتیبانی"]],
     one_time_keyboard=False,
@@ -139,9 +144,10 @@ def reminder_loop(application):
             current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             c.execute("SELECT user_id, chat_id, reminder_type FROM reminders WHERE remind_at <= ?", (current_time,))
             reminders = c.fetchall()
+            logger.info(f"Checked reminders at {current_time}, found {len(reminders)} reminders to send")
             
             for user_id, chat_id, reminder_type in reminders:
-                logger.info(f"Sending reminder for user_id: {user_id}, chat_id: {chat_id}, type: {reminder_type}")
+                logger.info(f"Scheduling reminder for user_id: {user_id}, chat_id: {chat_id}, type: {reminder_type}")
                 try:
                     if reminder_type == "1hour":
                         message = (
@@ -166,22 +172,32 @@ def reminder_loop(application):
                             f"راستی، یادت رفته عکست رو بفرستی!"
                         )
 
-                    async def send_message():
-                        await application.bot.send_message(
-                            chat_id=chat_id,
-                            text=message,
-                            reply_markup=InlineKeyboardMarkup([
-                                [InlineKeyboardButton("ادامه سفارش 🚀", callback_data="resume_order")]
-                            ])
-                        )
-                    
-                    asyncio.run_coroutine_threadsafe(send_message(), application.loop)
-                    logger.info(f"Reminder {reminder_type} sent successfully to chat_id: {chat_id}")
+                    async def send_message(context: ContextTypes.DEFAULT_TYPE):
+                        try:
+                            await context.bot.send_message(
+                                chat_id=chat_id,
+                                text=message,
+                                reply_markup=InlineKeyboardMarkup([
+                                    [InlineKeyboardButton("ادامه سفارش 🚀", callback_data="resume_order")]
+                                ])
+                            )
+                            logger.info(f"Reminder {reminder_type} sent successfully to chat_id: {chat_id}")
+                        except Exception as e:
+                            logger.error(f"Error sending reminder to chat_id {chat_id}: {e}")
+
+                    # اضافه کردن به job_queue
+                    application.job_queue.run_once(
+                        send_message,
+                        when=0,
+                        data=None,
+                        chat_id=chat_id,
+                        name=f"reminder_{user_id}_{reminder_type}"
+                    )
 
                     c.execute("DELETE FROM reminders WHERE user_id = ? AND reminder_type = ?", (user_id, reminder_type))
                     conn.commit()
                 except Exception as e:
-                    logger.error(f"Error sending reminder to chat_id {chat_id}: {e}")
+                    logger.error(f"Error scheduling reminder for chat_id {chat_id}: {e}")
             
             conn.close()
         except Exception as e:
@@ -251,7 +267,7 @@ async def inlinequery(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
                     title=question,
                     description="❓ یه سوال پرتکرار",
                     input_message_content=InputTextMessageContent(f"{question}"),
-                    thumb_url=info['thumbnail'],  # اضافه کردن تصویر برای سوالات
+                    thumb_url=info['thumbnail'],
                     thumb_width=150,
                     thumb_height=150
                 )
@@ -272,7 +288,7 @@ async def handle_product_selection(update: Update, context: ContextTypes.DEFAULT
     logger.info(f"Handling product selection: {update.message.text}")
     message_text = update.message.text
     if message_text in FAQ:
-        await update.message.reply_text(FAQ[message_text]['answer'])  # تغییر به ['answer']
+        await update.message.reply_text(FAQ[message_text]['answer'])
         return PRODUCT
     if message_text not in PRODUCTS:
         await update.message.reply_text("لطفاً یه محصول از منو انتخاب کن! 😊")
@@ -340,9 +356,10 @@ async def handle_size_selection(update: Update, context: ContextTypes.DEFAULT_TY
     chat_id = update.message.chat_id
 
     current_time = datetime.now()
-    add_reminder(user_id, chat_id, "1hour", (current_time + timedelta(seconds=60)).strftime("%Y-%m-%d %H:%M:%S"))
+    add_reminder(user_id, chat_id, "1hour", (current_time + timedelta(seconds=30)).strftime("%Y-%m-%d %H:%M:%S"))
     add_reminder(user_id, chat_id, "1day", (current_time + timedelta(days=1)).strftime("%Y-%m-%d %H:%M:%S"))
     add_reminder(user_id, chat_id, "3days", (current_time + timedelta(days=3)).strftime("%Y-%m-%d %H:%M:%S"))
+    logger.info(f"Reminders added for user_id: {user_id}, chat_id: {chat_id}")
 
     await update.message.reply_text(
         f"عالیه. 👏\nانتخابت حرف نداره ✨\nپس انتخابت شد: {context.user_data['product']} {selected_size}"
@@ -731,7 +748,7 @@ async def handle_faq_selection(update: Update, context: ContextTypes.DEFAULT_TYP
     logger.info(f"Handling FAQ selection: {update.message.text}")
     message_text = update.message.text
     if message_text in FAQ:
-        await update.message.reply_text(FAQ[message_text]['answer'])  # تغییر به ['answer']
+        await update.message.reply_text(FAQ[message_text]['answer'])
     else:
         await update.message.reply_text("لطفاً یه سؤال از منو انتخاب کن! 😊")
     return FAQ_STATE
@@ -761,6 +778,10 @@ async def error_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
 def main():
     logger.info("Building Telegram application...")
     application = Application.builder().token(BOT_TOKEN).build()
+
+    # غیرفعال کردن webhook
+    application.bot.delete_webhook(drop_pending_updates=True)
+    logger.info("Webhook disabled")
 
     init_db()
 
