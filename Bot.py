@@ -27,45 +27,68 @@ DISCOUNT_CODES = {
 
 PRODUCTS = {
     "تابلو نخی پرتره (دایره)": {"price": "تومان۲,۱۰۰,۰۰۰ تا ۳,۴۰۰,۰۰۰",
-    "thumbnail": "https://api.telegram.org/file/bot8086798709:AAETrPfHPj_aVM80QL_uL1LYg8cRMcSoRR0/photos/file_14.jpg"
+    "thumbnail": "https://i.imgur.com/TDVSaFR.jpeg"
     },
     "تابلو نخی پرتره (مربع)": {"price": "بزودی",
-"thumbnail": "https://api.telegram.org/file/bot8086798709:AAETrPfHPj_aVM80QL_uL1LYg8cRMcSoRR0/photos/file_13.jpg"
+"thumbnail": "https://i.imgur.com/1paKwCQ.png"
 },
     "تابلو نخی شبتاب": {"price": "بزودی",
-"thumbnail": "https://api.telegram.org/file/bot8086798709:AAETrPfHPj_aVM80QL_uL1LYg8cRMcSoRR0/photos/file_13.jpg"
+"thumbnail": "https://i.imgur.com/1paKwCQ.png"
 },
     "تابلو نخی ماندالا": {"price": "بزودی",
-"thumbnail": "https://api.telegram.org/file/bot8086798709:AAETrPfHPj_aVM80QL_uL1LYg8cRMcSoRR0/photos/file_13.jpg"
+"thumbnail": "https://i.imgur.com/1paKwCQ.png"
 }
 }
 
 SIZES = {
     "70×70": {"price": 2490000,
-    "thumbnail": "https://api.telegram.org/file/bot8086798709:AAETrPfHPj_aVM80QL_uL1LYg8cRMcSoRR0/photos/file_11.jpg"
+    "thumbnail": "[img]https://i.imgur.com/BcNC2lo.jpeg"
     },
     "45×45": {"price": "بزودی",
-"thumbnail": "https://api.telegram.org/file/bot8086798709:AAETrPfHPj_aVM80QL_uL1LYg8cRMcSoRR0/photos/file_13.jpg"
+"thumbnail": "https://i.imgur.com/1paKwCQ.png"
 },
     "60×60": {"price": "بزودی",
-"thumbnail": "https://api.telegram.org/file/bot8086798709:AAETrPfHPj_aVM80QL_uL1LYg8cRMcSoRR0/photos/file_13.jpg"
+"thumbnail": "https://i.imgur.com/1paKwCQ.png"
 },
     "90×90": {"price": "بزودی",
-"thumbnail": "https://api.telegram.org/file/bot8086798709:AAETrPfHPj_aVM80QL_uL1LYg8cRMcSoRR0/photos/file_13.jpg"
+"thumbnail": "https://i.imgur.com/1paKwCQ.png"
 }
 }
 
 FAQ = {
-    "مجموعه oro چیه؟": "یه گروه از جوون های باحال اردبیل که دارن از هنرشون استفاده میکنن. یه تیم خفن که عاشق کارشونه 😎",
-    "به شهر منم ارسال میکنین؟": "فعلا فقط تو شهر اردبیلیم! 🏠 ولی داریم نقشه میکشیم و برنامه ریزی میکنیم تا به تمام نقاط ایران ارسال داشته باشیم. قول میدم خیلی زود با خبر میشی ⏰",
-    "تابلو نخی پرتره (دایره) چیه؟": "بچه های هنرمند مون چهره ت رو میگیرن و با ظرافت تبدیلش میکنن به یه تابلو نخی جذاب و بی نظیر. یه اثر هنری همراه با خاطره ش فقط برای تو 🎨❤️",
-    "عکسم باید چه فرمتی باشه؟": "فقط میتونم عکس ساده تلگرام رو قبول کنم. بهتره که نسبت 1:1 باشه و چهره ت کامل بیوفته. اگر فرمت دیگه ای داری، بهتره با پشتیبانمون صحبت کنی 📲",
-    "ادیت عکس چجوریه؟": "اگه عکست چیز اضافی داره یا مثلا یه تیکه عکست خراب شده یا هر چیز دیگه ای... فتوشاپ کارای ماهرمون انجام میدن برات. خیالت تخت 🖼️",
-    "میتونم مشخصات سفارشم رو عوض کنم؟": "اگه فرآیند ثبت نام کامل شده، با پشتیبانی صحبت کن. وگرنه خیلی ساده رو این دکمه بزن و از اول شروع کن /start 🔄",
-    "چقدر طول میکشه تا آماده بشه؟": "از وقتی که سفارشت رو اپراتور تایید کرد، حداکثر 3 روز بعد دستته. سریع و آسون ⚡",
-    "میتونم چند تا تابلو سفارش بدم؟": "آره رفیق! 😍 هر چند تا که بخوای میشه. گزینه 'سفارش مجدد' رو بزن و دوباره سفارش بده. فقط حواست باشه که سفارشاتت رو تا انتها تکمیل کنی! 🛒"
+    "مجموعه oro چیه؟": {
+        "answer": "یه گروه از جوون های باحال اردبیل که دارن از هنرشون استفاده میکنن. یه تیم خفن که عاشق کارشونه 😎",
+        "thumbnail": "https://i.imgur.com/OqrFosV.jpeg"
+    },
+    "به شهر منم ارسال میکنین؟": {
+        "answer": "فعلا فقط تو شهر اردبیلیم! 🏠 ولی داریم نقشه میکشیم و برنامه ریزی میکنیم تا به تمام نقاط ایران ارسال داشته باشیم. قول میدم خیلی زود با خبر میشی ⏰",
+        "thumbnail": "https://i.imgur.com/OqrFosV.jpeg"
+    },
+    "تابلو نخی پرتره (دایره) چیه؟": {
+        "answer": "بچه های هنرمند مون چهره ت رو میگیرن و با ظرافت تبدیلش میکنن به یه تابلو نخی جذاب و بی نظیر. یه اثر هنری همراه با خاطره ش فقط برای تو 🎨❤️",
+        "thumbnail": "https://i.imgur.com/OqrFosV.jpeg"
+    },
+    "عکسم باید چه فرمتی باشه؟": {
+        "answer": "فقط میتونم عکس ساده تلگرام رو قبول کنم. بهتره که نسبت 1:1 باشه و چهره ت کامل بیوفته. اگر فرمت دیگه ای داری، بهتره با پشتیبانمون صحبت کنی 📲",
+        "thumbnail": "https://i.imgur.com/OqrFosV.jpeg"
+    },
+    "ادیت عکس چجوریه؟": {
+        "answer": "اگه عکست چیز اضافی داره یا مثلا یه تیکه عکست خراب شده یا هر چیز دیگه ای... فتوشاپ کارای ماهرمون انجام میدن برات. خیالت تخت 🖼️",
+        "thumbnail": "https://i.imgur.com/OqrFosV.jpeg"
+    },
+    "میتونم مشخصات سفارشم رو عوض کنم؟": {
+        "answer": "اگه فرآیند ثبت نام کامل شده، با پشتیبانی صحبت کن. وگرنه خیلی ساده رو این دکمه بزن و از اول شروع کن /start 🔄",
+        "thumbnail": "https://i.imgur.com/OqrFosV.jpeg"
+    },
+    "چقدر طول میکشه تا آماده بشه؟": {
+        "answer": "از وقتی که سفارشت رو اپراتور تایید کرد، حداکثر 3 روز بعد دستته. سریع و آسون ⚡",
+        "thumbnail": "https://i.imgur.com/OqrFosV.jpeg"
+    },
+    "میتونم چند تا تابلو سفارش بدم؟": {
+        "answer": "آره رفیق! 😍 هر چند تا که بخوای میشه. گزینه 'سفارش مجدد' رو بزن و دوباره سفارش بده. فقط حواست باشه که سفارشاتت رو تا انتها تکمیل کنی! 🛒",
+        "thumbnail": "https://i.imgur.com/OqrFosV.jpeg"
+    }
 }
-
 MAIN_KEYBOARD = ReplyKeyboardMarkup(
     [["🎨 شروع دوباره", "💬 ارتباط با پشتیبانی"]],
     one_time_keyboard=False,
@@ -215,19 +238,22 @@ async def inlinequery(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
                     title=size,
                     description=f"💰 قیمت: {price_display}",
                     input_message_content=InputTextMessageContent(f"{size}"),
-                    thumb_url=info['thumbnail'],  # اضافه کردن تصویر برای سایزها
+                    thumb_url=info['thumbnail'],
                     thumb_width=150,
                     thumb_height=150
                 )
             )
     elif query in ["سوالات", "سوال"]:
-        for question in FAQ.keys():
+        for question, info in FAQ.items():
             results.append(
                 InlineQueryResultArticle(
                     id=question,
                     title=question,
                     description="❓ یه سوال پرتکرار",
-                    input_message_content=InputTextMessageContent(f"{question}")
+                    input_message_content=InputTextMessageContent(f"{question}"),
+                    thumb_url=info['thumbnail'],  # اضافه کردن تصویر برای سوالات
+                    thumb_width=150,
+                    thumb_height=150
                 )
             )
     else:
@@ -246,7 +272,7 @@ async def handle_product_selection(update: Update, context: ContextTypes.DEFAULT
     logger.info(f"Handling product selection: {update.message.text}")
     message_text = update.message.text
     if message_text in FAQ:
-        await update.message.reply_text(FAQ[message_text])
+        await update.message.reply_text(FAQ[message_text]['answer'])  # تغییر به ['answer']
         return PRODUCT
     if message_text not in PRODUCTS:
         await update.message.reply_text("لطفاً یه محصول از منو انتخاب کن! 😊")
@@ -705,7 +731,7 @@ async def handle_faq_selection(update: Update, context: ContextTypes.DEFAULT_TYP
     logger.info(f"Handling FAQ selection: {update.message.text}")
     message_text = update.message.text
     if message_text in FAQ:
-        await update.message.reply_text(FAQ[message_text])
+        await update.message.reply_text(FAQ[message_text]['answer'])  # تغییر به ['answer']
     else:
         await update.message.reply_text("لطفاً یه سؤال از منو انتخاب کن! 😊")
     return FAQ_STATE
