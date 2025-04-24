@@ -43,7 +43,7 @@ PRODUCTS = {
 SIZES = {
     "70×70": {
         "price": 2490000,
-        "thumbnail": "https://i.imgur.com/BcNC2lo.jpeg"  # اصلاح‌شده
+        "thumbnail": "https://i.imgur.com/BcNC2lo.jpeg"
     },
     "45×45": {
         "price": "بزودی",
@@ -176,10 +176,7 @@ def reminder_loop(application):
                         try:
                             await context.bot.send_message(
                                 chat_id=chat_id,
-                                text=message,
-                                reply_markup=InlineKeyboardMarkup([
-                                    [InlineKeyboardButton("ادامه سفارش 🚀", callback_data="resume_order")]
-                                ])
+                                text=message
                             )
                             logger.info(f"Reminder {reminder_type} sent successfully to chat_id: {chat_id}")
                         except Exception as e:
@@ -356,7 +353,7 @@ async def handle_size_selection(update: Update, context: ContextTypes.DEFAULT_TY
     chat_id = update.message.chat_id
 
     current_time = datetime.now()
-    add_reminder(user_id, chat_id, "1hour", (current_time + timedelta(seconds=30)).strftime("%Y-%m-%d %H:%M:%S"))
+    add_reminder(user_id, chat_id, "1hour", (current_time + timedelta(hours=1)).strftime("%Y-%m-%d %H:%M:%S"))
     add_reminder(user_id, chat_id, "1day", (current_time + timedelta(days=1)).strftime("%Y-%m-%d %H:%M:%S"))
     add_reminder(user_id, chat_id, "3days", (current_time + timedelta(days=3)).strftime("%Y-%m-%d %H:%M:%S"))
     logger.info(f"Reminders added for user_id: {user_id}, chat_id: {chat_id}")
