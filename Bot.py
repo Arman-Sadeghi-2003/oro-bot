@@ -42,7 +42,7 @@ PRODUCTS = {
 
 SIZES = {
     "70×70": {"price": 2490000,
-    "thumbnail": "[img]https://i.imgur.com/BcNC2lo.jpeg"
+    "thumbnail": "https://i.imgur.com/BcNC2lo.jpeg"
     },
     "45×45": {"price": "بزودی",
 "thumbnail": "https://i.imgur.com/1paKwCQ.png"
