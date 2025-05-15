@@ -603,19 +603,14 @@ async def confirm_order(update: Update, context: ContextTypes.DEFAULT_TYPE) -> i
     await query.message.reply_text(
         f"سفارشت ثبت شد. 🎉\nمنتظر پیاممون باش. زودی باهات تماس می‌گیریم و هماهنگ می‌شیم! 📞\n"
         f"مرسی که با oro همراه شدی. 🙏{extra_discount_message}",
-        reply_markup=InlineKeyboardMarkup([
-            [InlineKeyboardButton("📦 ثبت سفارش دیگر", switch_inline_query_current_chat="محصولات")],
-            [
-                InlineKeyboardButton("💬 ارتباط با پشتیبانی", callback_data="support"),
-                InlineKeyboardButton("❓ سوالات پرتکرار", switch_inline_query_current_chat="سوالات")
-            ]
-        ])
+        reply_markup=ReplyKeyboardRemove()
     )
 
     await query.message.reply_text(
         "راستی اینم پیج اینستامونه. به دوستات هم معرفی کن 📷\nhttps://instagram.com/oro.stringart"
     )
 
+    marketer = f" (بازاریاب: {DISCOUNT_CODES[context.user_data['discount']]})" if context.user_data['discount'] in DISCOUNT_CODES else ""
     extra_discount_operator = " (تخفیف بیشتر ۱۰۰,۰۰۰ تومانی اعمال شد)" if extra_discount else ""
     message_to_operator = (
         "سفارش جدید:\n"
@@ -623,7 +618,7 @@ async def confirm_order(update: Update, context: ContextTypes.DEFAULT_TYPE) -> i
         f"- ابعاد: {context.user_data['size']}\n"
         f"- آیدی: @{context.user_data['username']}\n"
         f"- ادیت عکس: {context.user_data['edit']}\n"
-        f"- کد تخفیف: {context.user_data['discount']}{extra_discount_operator}\n"
+        f"- کد تخفیف: {context.user_data['discount']}{marketer}{extra_discount_operator}\n"
         f"- قیمت نهایی: {final_price_str}"
     )
     try:
@@ -660,19 +655,14 @@ async def contact(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
         await update.message.reply_text(
             f"سفارشت ثبت شد. 🎉\nمنتظر پیاممون باش. زودی باهات تماس می‌گیریم و هماهنگ می‌شیم! 📞\n"
             f"مرسی که با oro همراه شدی. 🙏",
-            reply_markup=InlineKeyboardMarkup([
-                [InlineKeyboardButton("📦 ثبت سفارش دیگر", switch_inline_query_current_chat="محصولات")],
-                [
-                    InlineKeyboardButton("💬 ارتباط با پشتیبانی", callback_data="support"),
-                    InlineKeyboardButton("❓ سوالات پرتکرار", switch_inline_query_current_chat="سوالات")
-                ]
-            ])
+            reply_markup=ReplyKeyboardRemove()
         )
 
         await update.message.reply_text(
             "راستی اینم پیج اینستامونه. به دوستات هم معرفی کن 📷\nhttps://instagram.com//oro.stringart"
         )
 
+        marketer = f" (بازاریاب: {DISCOUNT_CODES[context.user_data['discount']]})" if context.user_data['discount'] in DISCOUNT_CODES else ""
         extra_discount_operator = " (تخفیف بیشتر ۱۰۰,۰۰۰ تومانی اعمال شد)" if extra_discount else ""
         message_to_operator = (
             "سفارش جدید:\n"
@@ -680,7 +670,7 @@ async def contact(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
             f"- ابعاد: {context.user_data['size']}\n"
             f"- شماره تماس: {context.user_data['contact']}\n"
             f"- ادیت عکس: {context.user_data['edit']}\n"
-            f"- کد تخفیف: {context.user_data['discount']}{extra_discount_operator}\n"
+            f"- کد تخفیف: {context.user_data['discount']}{marketer}{extra_discount_operator}\n"
             f"- قیمت نهایی: {final_price_str}"
         )
         try:
