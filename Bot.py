@@ -17,7 +17,7 @@ BOT_TOKEN = os.getenv("BOT_TOKEN")
 if not BOT_TOKEN:
     raise ValueError("BOT_TOKEN not found in environment variables. Please set it in Railway Environment Variables.")
 
-PRODUCT, SIZE, PHOTO, EDIT, DISCOUNT, CONTACT, SUPPORT, FAQ_STATE = range(8)
+PRODUCT, SIZE, PHOTO, EDIT, DISCOUNT, CONTACT, SUPPORT, FAQ_STATE, CONFIRM_DISCOUNT = range(9)
 OPERATOR_ID = "7695028053"
 
 DISCOUNT_CODES = {
@@ -114,6 +114,8 @@ def init_db():
     c = conn.cursor()
     c.execute('''CREATE TABLE IF NOT EXISTS reminders
                  (user_id INTEGER, chat_id INTEGER, reminder_type TEXT, remind_at TEXT)''')
+    c.execute('''CREATE TABLE IF NOT EXISTS discount_status
+                 (user_id INTEGER PRIMARY KEY, extra_discount_eligible BOOLEAN)''')
     conn.commit()
     conn.close()
     logger.info("Database initialized successfully")
@@ -131,9 +133,27 @@ def remove_reminders(user_id):
     conn = sqlite3.connect(DATABASE_PATH)
     c = conn.cursor()
     c.execute("DELETE FROM reminders WHERE user_id = ?", (user_id,))
+    c.execute("DELETE FROM discount_status WHERE user_id = ?", (user_id,))
     conn.commit()
     conn.close()
-    logger.info(f"Removed all reminders for user_id: {user_id}")
+    logger.info(f"Removed all reminders and discount status for user_id: {user_id}")
+
+def set_extra_discount_eligible(user_id, eligible):
+    conn = sqlite3.connect(DATABASE_PATH)
+    c = conn.cursor()
+    c.execute("INSERT OR REPLACE INTO discount_status (user_id, extra_discount_eligible) VALUES (?, ?)",
+              (user_id, 1 if eligible else 0))
+    conn.commit()
+    conn.close()
+    logger.info(f"Set extra_discount_eligible to {eligible} for user_id: {user_id}")
+
+def get_extra_discount_eligible(user_id):
+    conn = sqlite3.connect(DATABASE_PATH)
+    c = conn.cursor()
+    c.execute("SELECT extra_discount_eligible FROM discount_status WHERE user_id = ?", (user_id,))
+    result = c.fetchone()
+    conn.close()
+    return bool(result[0]) if result else False
 
 def reminder_loop(application):
     logger.info("Starting reminder loop...")
@@ -154,7 +174,7 @@ def reminder_loop(application):
                             f"سلام دوست خوبم! 🌟\n"
                             f"ما هنوز منتظریم تا سفارشت رو کامل کنی.\n"
                             f"بیا ادامه بدیم و یه تابلو نخی فوق‌العاده برات بسازیم! 🎨\n\n"
-                            f"راستی، یادت رفته عکست رو بفرستی!"
+                            f"راستی عکست رو نفرستادی..."
                         )
                     elif reminder_type == "1day":
                         message = (
@@ -162,22 +182,22 @@ def reminder_loop(application):
                             f"یه روزه که oro منتظرته!\n"
                             f"اگه تا آخر امروز سفارشت رو تکمیل کنی، ۱۰۰,۰۰۰ تومن تخفیف بیشتر می‌گیرید! 🎁\n"
                             f"بیا تمومش کنیم! 💪\n\n"
-                            f"راستی، یادت رفته عکست رو بفرستی!"
+                            f"راستی عکست رو نفرستادی..."
                         )
+                        set_extra_discount_eligible(user_id, True)
                     elif reminder_type == "3days":
                         message = (
                             f"سلام دوست عزیز! ⚠️\n"
                             f"موجودی تابلو نخی پرتره (دایره) رو به اتمامه و ممکنه اطلاعات سفارشت پاک بشه!\n"
                             f"تا دیر نشده، همین امروز سفارشت رو کامل کن تا خیالت راحت بشه. 🖼️\n\n"
-                            f"راستی، یادت رفته عکست رو بفرستی!"
+                            f"راستی عکست رو نفرستادی..."
                         )
                     elif reminder_type == "5days":
-                        # حذف اطلاعات سفارش
                         remove_reminders(user_id)
                         logger.info(f"Order data cleared for user_id: {user_id} after 5 days")
                         c.execute("DELETE FROM reminders WHERE user_id = ? AND reminder_type = ?", (user_id, reminder_type))
                         conn.commit()
-                        continue  # پیام ارسال نمی‌کنیم، فقط اطلاعات پاک می‌شه
+                        continue
 
                     async def send_message(context: ContextTypes.DEFAULT_TYPE):
                         try:
@@ -189,7 +209,6 @@ def reminder_loop(application):
                         except Exception as e:
                             logger.error(f"Error sending reminder to chat_id {chat_id}: {e}")
 
-                    # اضافه کردن به job_queue
                     application.job_queue.run_once(
                         send_message,
                         when=0,
@@ -353,7 +372,6 @@ async def handle_size_selection(update: Update, context: ContextTypes.DEFAULT_TY
     context.user_data['size'] = selected_size
     context.user_data['username'] = update.message.from_user.username
     context.user_data['user_id'] = update.message.from_user.id
-    context.user_data['extra_discount_eligible'] = False
     context.user_data['current_state'] = PHOTO
 
     user_id = context.user_data['user_id']
@@ -500,20 +518,37 @@ async def discount(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
         await query.answer()
         if query.data == "no_discount":
             context.user_data['discount'] = "ندارد"
-            marketer = ""
+            await query.message.reply_text(
+                "باشه، بدون کد تخفیف ادامه می‌دیم. 😊\n"
+                "لطفاً تأیید کن که می‌خوای بدون کد تخفیف ادامه بدی:",
+                reply_markup=InlineKeyboardMarkup([
+                    [InlineKeyboardButton("✅ تأیید", callback_data="confirm_discount")]
+                ])
+            )
+            return CONFIRM_DISCOUNT
     else:
         discount_code = update.message.text.lower()
         if discount_code in DISCOUNT_CODES:
             context.user_data['discount'] = discount_code
             await update.message.reply_text("یه لحظه صبر کن بررسی کنم... ⏳")
             await asyncio.sleep(4)
-            await update.message.reply_text("درسته. کد تخفیفت اعمال شد ✅")
-            marketer = f" (بازاریاب: {DISCOUNT_CODES[discount_code]})"
+            await update.message.reply_text(
+                "درسته. کد تخفیفت اعمال شد ✅\n"
+                "لطفاً تأیید کن که می‌خوای با این کد تخفیف ادامه بدی:",
+                reply_markup=InlineKeyboardMarkup([
+                    [InlineKeyboardButton("✅ تأیید", callback_data="confirm_discount")]
+                ])
+            )
+            return CONFIRM_DISCOUNT
         else:
             await update.message.reply_text(
                 "این کد تخفیف درست نیست! ❌\nیه کد ۴ حرفی درست بزن یا 'کد تخفیف ندارم' رو انتخاب کن! 😜"
             )
             return DISCOUNT
+
+async def confirm_discount(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    query = update.callback_query
+    await query.answer()
 
     user_id = context.user_data['user_id']
     context.user_data['order_completed'] = True
@@ -521,7 +556,7 @@ async def discount(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
 
     base_price = SIZES[context.user_data['size']]['price']
     discount_amount = 240000 if context.user_data['discount'] in DISCOUNT_CODES else 0
-    extra_discount = 100000 if context.user_data.get('extra_discount_eligible', False) else 0
+    extra_discount = 100000 if get_extra_discount_eligible(user_id) else 0
     final_price = base_price - discount_amount - extra_discount
     final_price_str = f"{final_price:,} تومان".replace(',', '،')
 
@@ -530,11 +565,11 @@ async def discount(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
         f"- محصول: {context.user_data['product']}\n"
         f"- ابعاد: {context.user_data['size']}\n"
         f"- ادیت عکس: {context.user_data['edit']}\n"
-        f"- کد تخفیف: {context.user_data['discount']}{marketer}\n"
+        f"- کد تخفیف: {context.user_data['discount']}\n"
         f"- قیمت نهایی: {final_price_str}\n\n"
         "آیا مطمئنی که می‌خوای سفارش رو ثبت کنی؟"
     )
-    await (update.callback_query.message if update.callback_query else update.message).reply_text(
+    await query.message.reply_text(
         summary,
         reply_markup=InlineKeyboardMarkup([
             [InlineKeyboardButton("✅ تأیید سفارش", callback_data="confirm_order")]
@@ -546,10 +581,9 @@ async def confirm_order(update: Update, context: ContextTypes.DEFAULT_TYPE) -> i
     query = update.callback_query
     await query.answer()
     user_id = context.user_data['user_id']
-    marketer = f" (بازاریاب: {DISCOUNT_CODES[context.user_data['discount']]})" if context.user_data['discount'] in DISCOUNT_CODES else ""
     base_price = SIZES[context.user_data['size']]['price']
     discount_amount = 240000 if context.user_data['discount'] in DISCOUNT_CODES else 0
-    extra_discount = 100000 if context.user_data.get('extra_discount_eligible', False) else 0
+    extra_discount = 100000 if get_extra_discount_eligible(user_id) else 0
     final_price = base_price - discount_amount - extra_discount
     final_price_str = f"{final_price:,} تومان".replace(',', '،')
 
@@ -589,7 +623,7 @@ async def confirm_order(update: Update, context: ContextTypes.DEFAULT_TYPE) -> i
         f"- ابعاد: {context.user_data['size']}\n"
         f"- آیدی: @{context.user_data['username']}\n"
         f"- ادیت عکس: {context.user_data['edit']}\n"
-        f"- کد تخفیف: {context.user_data['discount']}{marketer}{extra_discount_operator}\n"
+        f"- کد تخفیف: {context.user_data['discount']}{extra_discount_operator}\n"
         f"- قیمت نهایی: {final_price_str}"
     )
     try:
@@ -614,7 +648,7 @@ async def contact(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
 
         base_price = SIZES[context.user_data['size']]['price']
         discount_amount = 240000 if context.user_data['discount'] in DISCOUNT_CODES else 0
-        extra_discount = 100000 if context.user_data.get('extra_discount_eligible', False) else 0
+        extra_discount = 100000 if get_extra_discount_eligible(user_id) else 0
         final_price = base_price - discount_amount - extra_discount
         final_price_str = f"{final_price:,} تومان".replace(',', '،')
 
@@ -640,14 +674,13 @@ async def contact(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
         )
 
         extra_discount_operator = " (تخفیف بیشتر ۱۰۰,۰۰۰ تومانی اعمال شد)" if extra_discount else ""
-        marketer = f" (بازاریاب: {DISCOUNT_CODES[context.user_data['discount']]})" if context.user_data['discount'] in DISCOUNT_CODES else ""
         message_to_operator = (
             "سفارش جدید:\n"
             f"- محصول: {context.user_data['product']}\n"
             f"- ابعاد: {context.user_data['size']}\n"
             f"- شماره تماس: {context.user_data['contact']}\n"
             f"- ادیت عکس: {context.user_data['edit']}\n"
-            f"- کد تخفیف: {context.user_data['discount']}{marketer}{extra_discount_operator}\n"
+            f"- کد تخفیف: {context.user_data['discount']}{extra_discount_operator}\n"
             f"- قیمت نهایی: {final_price_str}"
         )
         try:
@@ -784,7 +817,6 @@ def main():
     logger.info("Building Telegram application...")
     application = Application.builder().token(BOT_TOKEN).build()
 
-    # غیرفعال کردن webhook
     application.bot.delete_webhook(drop_pending_updates=True)
     logger.info("Webhook disabled")
 
@@ -836,6 +868,9 @@ def main():
                 CallbackQueryHandler(discount, pattern="^no_discount$"),
                 CallbackQueryHandler(confirm_order, pattern="^confirm_order$"),
                 MessageHandler(filters.Text() & ~filters.Command(), discount)
+            ],
+            CONFIRM_DISCOUNT: [
+                CallbackQueryHandler(confirm_discount, pattern="^confirm_discount$")
             ],
             CONTACT: [
                 MessageHandler(filters.CONTACT, contact),
